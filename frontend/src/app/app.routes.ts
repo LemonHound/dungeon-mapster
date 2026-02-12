@@ -6,6 +6,8 @@ import { MapEditor } from './pages/map-editor/map-editor';
 export const routes: Routes = [
   { path: '', component: Home },
   { path: 'maps', component: MapsList },
+  { path: 'map/:id', component: MapEditor },
+
+  // always last - catch-all that routes to the home page.
   { path: '**', redirectTo: '' },
-  { path: 'map/:id', component: MapEditor }
 ];

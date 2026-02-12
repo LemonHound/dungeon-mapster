@@ -1,1 +1,101 @@
-<p>map-editor works!</p>
+<div class="map-editor" id="map-editor">
+  <div class="canvas-container" id="canvas-container">
+    <canvas #mapCanvas class="map-canvas" id="map-canvas"></canvas>
+    <canvas #gridCanvas class="grid-canvas" id="grid-canvas"></canvas>
+  </div>
+  <div class="control-panel-container" id="control-panel-container">
+    <div class="tab-buttons" id="tab-buttons" data-testid="tab-buttons">
+      <button
+        (click)="setActiveTab('grid')"
+        [class.active]="activeTab === 'grid'"
+        class="vertical-tab-btn"
+        data-testid="tab-grid">
+        Grid
+      </button>
+      <button
+        (click)="setActiveTab('variables')"
+        [class.active]="activeTab === 'variables'"
+        class="vertical-tab-btn"
+        data-testid="tab-variables">
+        Variables
+      </button>
+      <button
+        (click)="setActiveTab('actions')"
+        [class.active]="activeTab === 'actions'"
+        class="vertical-tab-btn"
+        data-testid="tab-actions">
+        Actions
+      </button>
+    </div>
+
+    <div class="control-panel"
+         id="control-panel"
+         [class.expanded]="isPanelExpanded"
+         data-testid="control-panel">
+      <div class="tab-content" id="tab-content">
+        @if (activeTab === 'grid') {
+          <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
+            <h4>Grid Settings</h4>
+            <div class="grid-type-selector" data-testid="grid-type-selector">
+              <button
+                (click)="setGridType('square')"
+                [class.active]="gridType === 'square'"
+                class="grid-type-btn"
+                data-testid="grid-type-square">
+                Square
+              </button>
+              <button
+                (click)="setGridType('hex')"
+                [class.active]="gridType === 'hex'"
+                class="grid-type-btn"
+                data-testid="grid-type-hex">
+                Hex
+              </button>
+            </div>
+            @if (gridType === 'hex') {
+              <div class="hex-orientation-selector" data-testid="hex-orientation-selector">
+                <button
+                  (click)="setHexOrientation('flat')"
+                  [class.active]="hexOrientation === 'flat'"
+                  class="grid-type-btn"
+                  data-testid="hex-orientation-flat">
+                  Flat Top
+                </button>
+                <button
+                  (click)="setHexOrientation('pointy')"
+                  [class.active]="hexOrientation === 'pointy'"
+                  class="grid-type-btn"
+                  data-testid="hex-orientation-pointy">
+                  Pointy Top
+                </button>
+              </div>
+            }
+            <button (click)="toggleGridLock()" [class.active]="!gridLocked" data-testid="grid-lock-toggle">
+              {{ gridLocked ? 'Unlock Grid' : 'Lock Grid' }}
+            </button>
+            <div class="grid-controls" [class.disabled]="gridLocked" data-testid="grid-controls">
+              <label>
+                Grid Size:
+                <input type="number" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10" max="200" data-testid="grid-size-input" />
+              </label>
+            </div>
+          </div>
+        }
+
+        @if (activeTab === 'variables') {
+          <div class="control-section" id="variables-section" data-testid="variables-section">
+            <h4>Variables</h4>
+            <p>Variable controls coming soon...</p>
+          </div>
+        }
+
+        @if (activeTab === 'actions') {
+          <div class="control-section" id="actions-section" data-testid="actions-section">
+            <h4>Actions</h4>
+            <p>Action controls coming soon...</p>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

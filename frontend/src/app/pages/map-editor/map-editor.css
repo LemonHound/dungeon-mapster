@@ -1,0 +1,213 @@
+.map-editor {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background-color: #2c2c2c;
+}
+
+.map-canvas,
+.grid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.grid-canvas {
+  pointer-events: all;
+  z-index: 10;
+}
+
+.control-panel {
+  width: 300px;
+  background-color: #f8f9fa;
+  padding: 20px;
+  overflow-y: auto;
+  border-left: 1px solid #dee2e6;
+}
+
+.control-panel h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+.control-panel button {
+  width: 100%;
+  padding: 10px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.control-panel button:hover {
+  background-color: #2980b9;
+}
+
+.control-panel button.active {
+  background-color: #27ae60;
+}
+
+.control-panel button.active:hover {
+  background-color: #229954;
+}
+
+.grid-controls {
+  margin-top: 15px;
+}
+
+.grid-controls.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.grid-controls label {
+  display: block;
+  margin-bottom: 15px;
+  color: #34495e;
+  font-size: 0.9rem;
+}
+
+.grid-controls input[type="number"],
+.grid-controls input[type="range"] {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.grid-controls input[type="range"] {
+  padding: 0;
+}
+
+.grid-controls span {
+  display: inline-block;
+  margin-top: 5px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.control-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.control-section:last-child {
+  border-bottom: none;
+}
+
+.control-section h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #34495e;
+  font-size: 1rem;
+}
+
+.grid-type-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.grid-type-btn {
+  flex: 1;
+  padding: 8px;
+  background-color: #ecf0f1;
+  color: #2c3e50;
+  border: 2px solid #bdc3c7;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.grid-type-btn:hover {
+  background-color: #d5dbdb;
+}
+
+.grid-type-btn.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #2980b9;
+}
+
+.hex-orientation-selector {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+}
+
+.control-panel-container {
+  position: fixed;
+  right: 0;
+  top: 60px;
+  bottom: 0;
+  display: flex;
+  z-index: 100;
+}
+
+.tab-buttons {
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(0, 0, 0, 0);
+  padding: 10px 0;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.vertical-tab-btn {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 15px 10px;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 0 10px 10px 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.vertical-tab-btn:hover {
+  background-color: #34495e;
+}
+
+.vertical-tab-btn.active {
+  background-color: #3498db;
+}
+
+.control-panel {
+  width: 0;
+  background-color: #f8f9fa;
+  overflow: hidden;
+  transition: width 0.3s ease;
+  border-left: 1px solid #dee2e6;
+}
+
+.control-panel.expanded {
+  width: 300px;
+  overflow-y: auto;
+}
+
+.tab-content {
+  padding: 20px;
+  min-width: 300px;
+}
