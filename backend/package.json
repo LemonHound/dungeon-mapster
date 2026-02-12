@@ -1,0 +1,8 @@
+{
+  "name": "dungeon-mapster-backend",
+  "scripts": {
+    "start": "mvn spring-boot:run",
+    "build": "mvn clean package",
+    "test": "mvn test"
+  }
+}
