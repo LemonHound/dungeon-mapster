@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import {RouterOutlet} from '@angular/router';
+import {Header} from './components/layout/header/header';
+import {Sidebar} from './components/layout/sidebar/sidebar';
+
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule],
+  imports: [CommonModule, RouterOutlet, Header, Sidebar],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
