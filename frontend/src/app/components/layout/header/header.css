@@ -1,4 +1,4 @@
-.header {
+header {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,21 +12,24 @@
 
 .header-content {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   height: 100%;
   padding: 0 20px;
-  max-width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.header h1 {
+h1 {
   margin: 0;
-  font-size: 1.5rem;
-  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  user-select: none;
 }
 
 nav {
   display: flex;
+  align-items: center;
   gap: 20px;
 }
 
@@ -39,5 +42,51 @@ nav a {
 }
 
 nav a:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+nav a.active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.auth-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 20px;
+  padding-left: 20px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.user-name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.login-btn, .logout-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.login-btn {
+  background-color: #4285f4;
+  color: white;
+}
+
+.login-btn:hover {
+  background-color: #357ae8;
+}
+
+.logout-btn {
+  background-color: transparent;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.logout-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }

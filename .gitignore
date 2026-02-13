@@ -44,3 +44,7 @@ out/
 # JAR files
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
+
+# Variables
+.env
+backend/.env

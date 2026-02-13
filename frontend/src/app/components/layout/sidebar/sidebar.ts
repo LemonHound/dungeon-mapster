@@ -9,7 +9,7 @@ import {RouterLink} from '@angular/router';
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
 })
-export class Sidebar {
+export class SidebarComponent {
   isExpanded = false;
 
   expand() {
