@@ -1,8 +1,13 @@
 package org.dungeonmaps.DungeonMapster.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "dungeon_maps")
 public class DungeonMap {
@@ -14,8 +19,26 @@ public class DungeonMap {
     @Column(nullable = false)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
-    private String mapData;
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @Column(name = "grid_type")
+    private String gridType;
+
+    @Column(name = "grid_size")
+    private Integer gridSize;
+
+    @Column(name = "grid_offset_x")
+    private Double gridOffsetX;
+
+    @Column(name = "grid_offset_y")
+    private Double gridOffsetY;
+
+    @Column(name = "grid_rotation")
+    private Double gridRotation;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -34,43 +57,4 @@ public class DungeonMap {
         updatedAt = LocalDateTime.now();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getMapData() {
-        return mapData;
-    }
-
-    public void setMapData(String mapData) {
-        this.mapData = mapData;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 }

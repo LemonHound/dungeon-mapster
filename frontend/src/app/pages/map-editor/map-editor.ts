@@ -1,16 +1,20 @@
-import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
-import {FormsModule} from '@angular/forms';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { GridStrategy } from '../../models/grid-strategy.interface';
 import { SquareGridStrategy } from '../../models/square-grid.strategy';
 import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy';
+import { MapService, DungeonMap } from '../../services/map';
+import { environment } from '../../config/environment';
 
 @Component({
   selector: 'app-map-editor',
-  imports: [FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './map-editor.html',
   styleUrl: './map-editor.css',
 })
-export class MapEditor implements AfterViewInit {
+export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
 
@@ -37,8 +41,37 @@ export class MapEditor implements AfterViewInit {
   private gridStrategy: GridStrategy = new SquareGridStrategy();
   public hexOrientation: HexOrientation = 'flat';
 
-  public activeTab: 'grid' | 'variables' | 'actions' = 'grid';
+  public activeTab: 'map-details' | 'grid' | 'variables' | 'actions' = 'grid';
   public isPanelExpanded = false;
+
+  public mapData: DungeonMap = {
+    name: 'Untitled Map',
+    gridType: 'square',
+    gridSize: 50,
+    gridOffsetX: 0,
+    gridOffsetY: 0,
+    gridRotation: 0
+  };
+
+  private mapId?: number;
+  private saveTimeout?: any;
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private mapService: MapService
+  ) {}
+
+  ngOnInit(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+
+    if (id && id !== 'new') {
+      this.mapId = parseInt(id);
+      this.loadMap(this.mapId);
+    } else {
+      this.createInitialMap();
+    }
+  }
 
   ngAfterViewInit() {
     this.mapCanvas = this.mapCanvasRef.nativeElement;
@@ -47,10 +80,110 @@ export class MapEditor implements AfterViewInit {
     this.gridCtx = this.gridCanvas.getContext('2d')!;
 
     this.resizeCanvas();
-    this.loadMapImage();
     this.setupMouseEvents();
 
     window.addEventListener('resize', () => this.resizeCanvas());
+  }
+
+  ngOnDestroy(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveMap();
+    }
+  }
+
+  private loadMap(id: number): void {
+    this.mapService.getMapById(id).subscribe({
+      next: (map) => {
+        this.mapData = map;
+        this.mapId = map.id;
+        this.applyMapData();
+      },
+      error: (error) => {
+        console.error('Error loading map:', error);
+        this.router.navigate(['/maps']);
+      }
+    });
+  }
+
+  private createInitialMap(): void {
+    this.mapService.createMap(this.mapData).subscribe({
+      next: (created) => {
+        this.mapData = created;
+        this.mapId = created.id;
+        this.router.navigate(['/map-editor', this.mapId], { replaceUrl: true });
+      },
+      error: (error) => console.error('Error creating map:', error)
+    });
+  }
+
+  private applyMapData(): void {
+    this.gridType = (this.mapData.gridType as 'square' | 'hex') || 'square';
+    this.gridSize = this.mapData.gridSize || 50;
+    this.gridOffsetX = this.mapData.gridOffsetX || 0;
+    this.gridOffsetY = this.mapData.gridOffsetY || 0;
+
+    this.setGridType(this.gridType);
+
+    if (this.mapData.imageUrl) {
+      this.loadMapImageFromUrl(this.mapData.imageUrl);
+    } else {
+      this.render();
+    }
+  }
+
+  private loadMapImageFromUrl(url: string): void {
+    this.mapImage = new Image();
+    this.mapImage.onload = () => {
+      this.render();
+    };
+    this.mapImage.onerror = (e) => {
+      console.error('Image failed to load:', e);
+    };
+    this.mapImage.src = `${environment.apiUrl}${url}`;
+  }
+
+  private scheduleAutoSave(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    this.saveTimeout = setTimeout(() => {
+      this.saveMap();
+    }, 1000);
+  }
+
+  private saveMap(): void {
+    if (!this.mapId) return;
+
+    this.mapData.gridType = this.gridType;
+    this.mapData.gridSize = this.gridSize;
+    this.mapData.gridOffsetX = this.gridOffsetX;
+    this.mapData.gridOffsetY = this.gridOffsetY;
+
+    this.mapService.updateMap(this.mapId, this.mapData).subscribe({
+      next: (updated) => this.mapData = updated,
+      error: (error) => console.error('Error saving map:', error)
+    });
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      this.mapService.uploadImage(file).subscribe({
+        next: (response) => {
+          this.mapData.imageUrl = response.imageUrl;
+          this.loadMapImageFromUrl(response.imageUrl);
+          this.scheduleAutoSave();
+        },
+        error: (error) => console.error('Error uploading image:', error)
+      });
+    }
+  }
+
+  onMapNameChange(): void {
+    this.scheduleAutoSave();
   }
 
   private resizeCanvas() {
@@ -61,14 +194,6 @@ export class MapEditor implements AfterViewInit {
     this.gridCanvas.height = container.clientHeight;
 
     this.render();
-  }
-
-  private loadMapImage() {
-    this.mapImage = new Image();
-    this.mapImage.onload = () => {
-      this.render();
-    };
-    this.mapImage.src = 'assets/images/StolenLands.png';
   }
 
   private render() {
@@ -138,6 +263,7 @@ export class MapEditor implements AfterViewInit {
 
     this.gridCanvas.addEventListener('mouseup', () => {
       isDragging = false;
+      this.scheduleAutoSave();
     });
 
     this.gridCanvas.addEventListener('mouseleave', () => {
@@ -198,6 +324,7 @@ export class MapEditor implements AfterViewInit {
 
   onGridChange() {
     this.render();
+    this.scheduleAutoSave();
   }
 
   setGridType(type: 'square' | 'hex') {
@@ -208,6 +335,7 @@ export class MapEditor implements AfterViewInit {
       this.gridStrategy = new HexGridStrategy(this.hexOrientation);
     }
     this.render();
+    this.scheduleAutoSave();
   }
 
   setHexOrientation(orientation: HexOrientation) {
@@ -215,10 +343,11 @@ export class MapEditor implements AfterViewInit {
     if (this.gridType === 'hex') {
       this.gridStrategy = new HexGridStrategy(orientation);
       this.render();
+      this.scheduleAutoSave();
     }
   }
 
-  setActiveTab(tab: 'grid' | 'variables' | 'actions') {
+  setActiveTab(tab: 'map-details' | 'grid' | 'variables' | 'actions') {
     if (this.activeTab === tab && this.isPanelExpanded) {
       this.isPanelExpanded = false;
     } else {

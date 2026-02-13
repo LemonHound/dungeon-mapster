@@ -6,6 +6,13 @@
   <div class="control-panel-container" id="control-panel-container">
     <div class="tab-buttons" id="tab-buttons" data-testid="tab-buttons">
       <button
+        (click)="setActiveTab('map-details')"
+        [class.active]="activeTab === 'map-details'"
+        class="vertical-tab-btn"
+        data-testid="tab-actions">
+        Map Details
+      </button>
+      <button
         (click)="setActiveTab('grid')"
         [class.active]="activeTab === 'grid'"
         class="vertical-tab-btn"
@@ -33,6 +40,23 @@
          [class.expanded]="isPanelExpanded"
          data-testid="control-panel">
       <div class="tab-content" id="tab-content">
+        @if(activeTab === 'map-details'){
+          <div class="control-section">
+            <h4>Map Image</h4>
+            <label class="file-upload-label">
+              <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;" />
+              <span class="upload-button">Upload Image</span>
+            </label>
+            @if (mapData.imageUrl) {
+              <p class="image-status">✓ Image uploaded</p>
+            }
+          </div>
+
+          <div class="control-section">
+            <h4>Map Name</h4>
+            <input type="text" [(ngModel)]="mapData.name" (input)="onMapNameChange()" class="map-name-input" />
+          </div>
+        }
         @if (activeTab === 'grid') {
           <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
             <h4>Grid Settings</h4>

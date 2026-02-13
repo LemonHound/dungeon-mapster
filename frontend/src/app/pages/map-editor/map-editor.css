@@ -211,3 +211,38 @@
   padding: 20px;
   min-width: 300px;
 }
+
+.file-upload-label {
+  display: block;
+  cursor: pointer;
+}
+
+.upload-button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #27ae60;
+  color: white;
+  text-align: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.upload-button:hover {
+  background-color: #229954;
+}
+
+.image-status {
+  margin-top: 10px;
+  color: #27ae60;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.map-name-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}

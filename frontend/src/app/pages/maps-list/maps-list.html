@@ -1,1 +1,38 @@
-<p>maps-list works!</p>
+<div class="maps-container">
+  <div class="maps-header">
+    <h1>My Maps</h1>
+    <button class="create-button" (click)="createNewMap()">Create New Map</button>
+  </div>
+
+  @if (loading) {
+    <div class="loading">Loading maps...</div>
+  }
+
+  @if (!loading && maps.length === 0) {
+    <div class="empty-state">
+      <p>You haven't created any maps yet.</p>
+      <button (click)="createNewMap()">Create Your First Map</button>
+    </div>
+  }
+
+  @if (!loading && maps.length > 0) {
+    <div class="maps-grid">
+      @for (map of maps; track map.id) {
+        <div class="map-card" (click)="openMap(map.id!)">
+          <div class="map-thumbnail">
+            @if (map.imageUrl) {
+              <img [ngSrc]="getImageUrl(map.imageUrl)" [alt]="map.name" fill>
+            } @else {
+              <div class="no-image">No Image</div>
+            }
+          </div>
+          <div class="map-info">
+            <h3>{{ map.name }}</h3>
+            <p class="map-meta">Updated: {{ map.updatedAt | date:'short' }}</p>
+          </div>
+          <button class="delete-button" (click)="deleteMap(map.id!, $event)">Delete</button>
+        </div>
+      }
+    </div>
+  }
+</div>

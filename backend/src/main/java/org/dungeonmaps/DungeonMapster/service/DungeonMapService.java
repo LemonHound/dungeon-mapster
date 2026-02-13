@@ -20,6 +20,10 @@ public class DungeonMapService {
         return repository.findAll();
     }
 
+    public List<DungeonMap> getMapsByUserId(Long userId) {
+        return repository.findByUserId(userId);
+    }
+
     public Optional<DungeonMap> getMapById(Long id) {
         return repository.findById(id);
     }

@@ -48,3 +48,6 @@ out/
 # Variables
 .env
 backend/.env
+
+# Map images (because they're large)
+*/uploads/*
