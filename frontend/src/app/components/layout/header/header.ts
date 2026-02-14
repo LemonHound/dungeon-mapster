@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit, inject} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService, User } from '../../../services/auth.service';
@@ -11,12 +11,9 @@ import { AuthService, User } from '../../../services/auth.service';
   styleUrl: './header.css'
 })
 export class HeaderComponent implements OnInit {
+  private authService = inject(AuthService);
+  private router = inject(Router);
   currentUser: User | null = null;
-
-  constructor(
-    private authService: AuthService,
-    private router: Router
-  ) {}
 
   ngOnInit(): void {
     this.authService.currentUser$.subscribe((user: User | null) => {

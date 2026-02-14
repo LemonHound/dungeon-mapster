@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Build with Maven
+        working-directory: ./backend
+        run: mvn clean install -DskipTests
+      - name: Run tests
+        working-directory: ./backend
+        run: mvn test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node v24
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build

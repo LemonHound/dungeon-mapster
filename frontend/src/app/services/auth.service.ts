@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
+import {Injectable, inject} from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import {BehaviorSubject} from 'rxjs';
 
 export interface User {
   id: number;
@@ -14,13 +13,15 @@ export interface User {
   providedIn: 'root'
 })
 export class AuthService {
+  private http = inject(HttpClient);
+
   private readonly TOKEN_KEY = 'auth_token';
   private readonly API_URL = 'http://localhost:8080/api';
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor() {
     this.loadCurrentUser();
   }
 
