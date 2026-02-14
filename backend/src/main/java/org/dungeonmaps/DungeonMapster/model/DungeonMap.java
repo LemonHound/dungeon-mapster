@@ -37,6 +37,21 @@ public class DungeonMap {
     @Column(name = "grid_rotation")
     private Double gridRotation;
 
+    @Column(name = "grid_scale")
+    private Double gridScale;
+
+    @Column(name = "hex_orientation")
+    private String hexOrientation;
+
+    @Column(name = "map_offset_x")
+    private Double mapOffsetX;
+
+    @Column(name = "map_offset_y")
+    private Double mapOffsetY;
+
+    @Column(name = "map_scale")
+    private Double mapScale;
+
     @Column(name = "user_id", nullable = false)
     private Long userId;
 

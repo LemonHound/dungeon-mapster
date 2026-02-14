@@ -12,6 +12,11 @@ export interface DungeonMap {
   gridOffsetX?: number;
   gridOffsetY?: number;
   gridRotation?: number;
+  gridScale?: number;
+  hexOrientation?: string;
+  mapOffsetX?: number;
+  mapOffsetY?: number;
+  mapScale?: number;
   userId?: number;
   createdAt?: string;
   updatedAt?: string;

@@ -50,7 +50,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     gridSize: 50,
     gridOffsetX: 0,
     gridOffsetY: 0,
-    gridRotation: 0
+    gridRotation: 0,
+    gridScale: 1,
   };
 
   private mapId?: number;
@@ -122,8 +123,21 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.gridSize = this.mapData.gridSize || 50;
     this.gridOffsetX = this.mapData.gridOffsetX || 0;
     this.gridOffsetY = this.mapData.gridOffsetY || 0;
+    this.gridScale = this.mapData.gridScale || 1;
+    this.hexOrientation = (this.mapData.hexOrientation as HexOrientation) || 'flat';
+    this.offsetX = this.mapData.mapOffsetX || 0;
+    this.offsetY = this.mapData.mapOffsetY || 0;
+    this.scale = this.mapData.mapScale || 1;
 
-    this.setGridType(this.gridType);
+    this.gridScaleRatio = this.gridScale / this.scale;
+    this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
+    this.gridOffsetRatioY = this.gridOffsetY - this.offsetY;
+
+    if (this.gridType === 'square') {
+      this.gridStrategy = new SquareGridStrategy();
+    } else {
+      this.gridStrategy = new HexGridStrategy(this.hexOrientation);
+    }
 
     if (this.mapData.imageUrl) {
       this.loadMapImageFromUrl(this.mapData.imageUrl);
@@ -150,16 +164,20 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.saveTimeout = setTimeout(() => {
       this.saveMap();
-    }, 1000);
+    }, 3000);
   }
 
   private saveMap(): void {
     if (!this.mapId) return;
-
     this.mapData.gridType = this.gridType;
     this.mapData.gridSize = this.gridSize;
     this.mapData.gridOffsetX = this.gridOffsetX;
     this.mapData.gridOffsetY = this.gridOffsetY;
+    this.mapData.gridScale = this.gridScale;
+    this.mapData.hexOrientation = this.hexOrientation;
+    this.mapData.mapOffsetX = this.offsetX;
+    this.mapData.mapOffsetY = this.offsetY;
+    this.mapData.mapScale = this.scale;
 
     this.mapService.updateMap(this.mapId, this.mapData).subscribe({
       next: (updated) => this.mapData = updated,
@@ -263,7 +281,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.gridCanvas.addEventListener('mouseup', () => {
       isDragging = false;
-      this.scheduleAutoSave();
+      if (!this.gridLocked) {
+        this.scheduleAutoSave();
+      }
     });
 
     this.gridCanvas.addEventListener('mouseleave', () => {
@@ -320,6 +340,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
     this.gridLocked = !this.gridLocked;
     this.render();
+    this.saveMap();
   }
 
   onGridChange() {
