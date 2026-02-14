@@ -17,8 +17,10 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
       - name: Build with Maven
+        working-directory: ./backend
         run: mvn clean install -DskipTests
       - name: Run tests
+        working-directory: ./backend
         run: mvn test
 
   frontend:
