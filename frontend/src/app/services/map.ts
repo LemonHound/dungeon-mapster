@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import {Injectable, inject} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../config/environment';
@@ -26,9 +26,8 @@ export interface DungeonMap {
   providedIn: 'root'
 })
 export class MapService {
+  private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/api/maps`;
-
-  constructor(private http: HttpClient) {}
 
   getUserMaps(): Observable<DungeonMap[]> {
     return this.http.get<DungeonMap[]>(this.apiUrl);

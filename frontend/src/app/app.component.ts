@@ -1,5 +1,4 @@
-import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import {Component} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {RouterOutlet} from '@angular/router';
 import { HeaderComponent } from './components/layout/header/header';

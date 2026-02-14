@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import {Component, OnInit, inject} from '@angular/core';
 import {CommonModule, NgOptimizedImage} from '@angular/common';
 import { Router } from '@angular/router';
 import { MapService, DungeonMap } from '../../services/map';
@@ -12,13 +12,12 @@ import {environment} from '../../config/environment';
   styleUrl: './maps-list.css'
 })
 export class MapsListComponent implements OnInit {
+  private mapService = inject(MapService);
+  private router = inject(Router);
+
   maps: DungeonMap[] = [];
   loading = true;
 
-  constructor(
-    private mapService: MapService,
-    private router: Router
-  ) {}
 
   ngOnInit(): void {
     this.loadMaps();

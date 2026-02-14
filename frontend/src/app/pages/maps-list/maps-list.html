@@ -18,7 +18,7 @@
   @if (!loading && maps.length > 0) {
     <div class="maps-grid">
       @for (map of maps; track map.id) {
-        <div class="map-card" (click)="openMap(map.id!)">
+        <div class="map-card" (click)="openMap(map.id!)" (keypress)="openMap(map.id!)" tabindex="0">
           <div class="map-thumbnail">
             @if (map.imageUrl) {
               <img [ngSrc]="getImageUrl(map.imageUrl)" [alt]="map.name" fill>

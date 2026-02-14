@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy } from '@angular/core';
+import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,6 +16,11 @@ import {GridCellDataService} from '../../services/grid-cell-data.service';
   styleUrl: './map-editor.css',
 })
 export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private mapService = inject(MapService);
+  private gridCellDataService = inject(GridCellDataService);
+
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
 
@@ -45,7 +50,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private mouseDownTime = 0;
   public selectedCell: GridCell | null = null;
   public selectedCellName = '';
-  private cellNameTimeout?: any;
+  private cellNameTimeout?: NodeJS.Timeout | number;
 
   public activeTab: 'map-details' | 'grid' | 'variables' | 'actions' = 'grid';
   public isPanelExpanded = false;
@@ -61,14 +66,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   };
 
   private mapId?: number;
-  private saveTimeout?: any;
+  private saveTimeout?: NodeJS.Timeout | number;
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private mapService: MapService,
-    private gridCellDataService: GridCellDataService
-  ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -466,7 +465,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.selectedCellName
     ).subscribe({
       next: () => console.log('Cell name saved'),
-      error: (error: any) => console.error('Error saving cell name:', error)
+      error: (error: unknown) => console.error('Error saving cell name:', error)
     });
   }
 }
