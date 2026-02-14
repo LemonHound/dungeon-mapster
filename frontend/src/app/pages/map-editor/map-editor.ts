@@ -2,11 +2,12 @@ import { Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy } fr
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { GridStrategy } from '../../models/grid-strategy.interface';
+import {GridCell, GridStrategy} from '../../models/grid-strategy.interface';
 import { SquareGridStrategy } from '../../models/square-grid.strategy';
 import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy';
 import { MapService, DungeonMap } from '../../services/map';
 import { environment } from '../../config/environment';
+import {GridCellDataService} from '../../services/grid-cell-data.service';
 
 @Component({
   selector: 'app-map-editor',
@@ -41,6 +42,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private gridStrategy: GridStrategy = new SquareGridStrategy();
   public hexOrientation: HexOrientation = 'flat';
 
+  private mouseDownTime = 0;
+  public selectedCell: GridCell | null = null;
+  public selectedCellName = '';
+  private cellNameTimeout?: any;
+
   public activeTab: 'map-details' | 'grid' | 'variables' | 'actions' = 'grid';
   public isPanelExpanded = false;
 
@@ -60,7 +66,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private mapService: MapService
+    private mapService: MapService,
+    private gridCellDataService: GridCellDataService
   ) {}
 
   ngOnInit(): void {
@@ -233,6 +240,20 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private drawGrid() {
+    if (!this.gridCanvas || !this.gridCtx) return;
+
+    let imageBounds;
+    if (this.mapImage) {
+      const imgWidth = this.mapImage.width * this.scale;
+      const imgHeight = this.mapImage.height * this.scale;
+      imageBounds = {
+        x: this.offsetX,
+        y: this.offsetY,
+        width: imgWidth,
+        height: imgHeight
+      };
+    }
+
     this.gridStrategy.draw(
       this.gridCtx,
       this.gridCanvas.width,
@@ -241,8 +262,20 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.gridOffsetX,
       this.gridOffsetY,
       this.gridScale,
-      this.gridLocked
+      this.gridLocked,
+      imageBounds
     );
+
+    if (this.selectedCell && this.gridStrategy.drawHighlight) {
+      this.gridStrategy.drawHighlight(
+        this.gridCtx,
+        this.selectedCell,
+        this.gridSize,
+        this.gridOffsetX,
+        this.gridOffsetY,
+        this.gridScale
+      );
+    }
   }
 
   private setupMouseEvents() {
@@ -251,6 +284,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     let lastY = 0;
 
     this.gridCanvas.addEventListener('mousedown', (e) => {
+      this.mouseDownTime = Date.now();
       isDragging = true;
       lastX = e.clientX;
       lastY = e.clientY;
@@ -279,7 +313,16 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.render();
     });
 
-    this.gridCanvas.addEventListener('mouseup', () => {
+    this.gridCanvas.addEventListener('mouseup', (e) => {
+      const clickDuration = Date.now() - this.mouseDownTime;
+
+      if (clickDuration < 200 && this.gridLocked) {
+        const rect = this.gridCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        this.handleCellClick(x, y);
+      }
+
       isDragging = false;
       if (!this.gridLocked) {
         this.scheduleAutoSave();
@@ -332,6 +375,30 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     });
   }
 
+  private handleCellClick(x: number, y: number) {
+    this.selectedCell = this.gridStrategy.getCellFromPoint(
+      x,
+      y,
+      this.gridSize,
+      this.gridOffsetX,
+      this.gridOffsetY,
+      this.gridScale
+    );
+
+    if (this.selectedCell && this.mapId) {
+      this.gridCellDataService.getCell(
+        this.mapId,
+        this.selectedCell.row,
+        this.selectedCell.col
+      ).subscribe({
+        next: (cellData) => this.selectedCellName = cellData.name || '',
+        error: () => this.selectedCellName = ''
+      });
+    }
+
+    this.render();
+  }
+
   toggleGridLock() {
     if (!this.gridLocked) {
       this.gridScaleRatio = this.gridScale / this.scale;
@@ -375,5 +442,31 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.activeTab = tab;
       this.isPanelExpanded = true;
     }
+  }
+
+  onCellNameChange() {
+    if (this.cellNameTimeout) {
+      clearTimeout(this.cellNameTimeout);
+    }
+
+    this.cellNameTimeout = setTimeout(() => {
+      if (this.selectedCell && this.mapId) {
+        this.saveCellName();
+      }
+    }, 300);
+  }
+
+  private saveCellName() {
+    if (!this.selectedCell || !this.mapId) return;
+
+    this.gridCellDataService.saveCell(
+      this.mapId,
+      this.selectedCell.row,
+      this.selectedCell.col,
+      this.selectedCellName
+    ).subscribe({
+      next: () => console.log('Cell name saved'),
+      error: (error: any) => console.error('Error saving cell name:', error)
+    });
   }
 }

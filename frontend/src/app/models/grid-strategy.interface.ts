@@ -3,6 +3,13 @@ export interface GridCell {
   col: number;
 }
 
+export interface ImageBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface GridStrategy {
   draw(
     ctx: CanvasRenderingContext2D,
@@ -12,7 +19,8 @@ export interface GridStrategy {
     offsetX: number,
     offsetY: number,
     scale: number,
-    isLocked: boolean
+    isLocked: boolean,
+    imageBounds?: ImageBounds
   ): void;
 
   getCellFromPoint(
@@ -23,4 +31,13 @@ export interface GridStrategy {
     offsetY: number,
     scale: number
   ): GridCell;
+
+  drawHighlight?(
+    ctx: CanvasRenderingContext2D,
+    cell: GridCell,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    scale: number
+  ): void;
 }

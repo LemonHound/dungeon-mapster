@@ -109,7 +109,21 @@
         @if (activeTab === 'variables') {
           <div class="control-section" id="variables-section" data-testid="variables-section">
             <h4>Variables</h4>
-            <p>Variable controls coming soon...</p>
+            @if (selectedCell) {
+              <label>
+                Cell Name:
+                <input
+                  type="text"
+                  [(ngModel)]="selectedCellName"
+                  (input)="onCellNameChange()"
+                  class="map-name-input"
+                  placeholder="Enter cell name..."
+                />
+              </label>
+              <p class="cell-info">Row: {{ selectedCell.row }}, Col: {{ selectedCell.col }}</p>
+            } @else {
+              <p>Select a grid cell to edit its properties</p>
+            }
           </div>
         }
 
