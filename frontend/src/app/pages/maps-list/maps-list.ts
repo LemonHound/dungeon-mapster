@@ -2,7 +2,7 @@ import {Component, OnInit, inject} from '@angular/core';
 import {CommonModule, NgOptimizedImage} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import { Router } from '@angular/router';
-import {MapService, DungeonMap, MapMembership} from '../../services/map';
+import {MapService, DungeonMap} from '../../services/map';
 import {AuthService} from '../../services/auth.service';
 import {environment} from '../../config/environment';
 import {forkJoin} from 'rxjs';

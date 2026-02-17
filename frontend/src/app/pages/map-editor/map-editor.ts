@@ -74,7 +74,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   public userRole: 'OWNER' | 'DM' | 'PLAYER' | null = null;
   public members: MapMembership[] = [];
-  public memberUsers: Map<number, User> = new Map();
+  public memberUsers = new Map<number, User>();
   public loadingMemberId: number | null = null;
 
 
