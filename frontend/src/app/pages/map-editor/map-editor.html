@@ -3,137 +3,217 @@
     <canvas #mapCanvas class="map-canvas" id="map-canvas"></canvas>
     <canvas #gridCanvas class="grid-canvas" id="grid-canvas"></canvas>
   </div>
-  <div class="control-panel-container" id="control-panel-container">
-    <div class="tab-buttons" id="tab-buttons" data-testid="tab-buttons">
-      <button
-        (click)="setActiveTab('map-details')"
-        [class.active]="activeTab === 'map-details'"
-        class="vertical-tab-btn"
-        data-testid="tab-actions">
-        Map Details
-      </button>
-      <button
-        (click)="setActiveTab('grid')"
-        [class.active]="activeTab === 'grid'"
-        class="vertical-tab-btn"
-        data-testid="tab-grid">
-        Grid
-      </button>
-      <button
-        (click)="setActiveTab('variables')"
-        [class.active]="activeTab === 'variables'"
-        class="vertical-tab-btn"
-        data-testid="tab-variables">
-        Variables
-      </button>
-      <button
-        (click)="setActiveTab('actions')"
-        [class.active]="activeTab === 'actions'"
-        class="vertical-tab-btn"
-        data-testid="tab-actions">
-        Actions
-      </button>
-    </div>
-
-    <div class="control-panel"
-         id="control-panel"
-         [class.expanded]="isPanelExpanded"
-         data-testid="control-panel">
-      <div class="tab-content" id="tab-content">
-        @if(activeTab === 'map-details'){
-          <div class="control-section">
-            <h4>Map Image</h4>
-            <label class="file-upload-label">
-              <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;" />
-              <span class="upload-button">Upload Image</span>
-            </label>
-            @if (mapData.imageUrl) {
-              <p class="image-status">✓ Image uploaded</p>
-            }
-          </div>
-
-          <div class="control-section">
-            <h4>Map Name</h4>
-            <input type="text" [(ngModel)]="mapData.name" (input)="onMapNameChange()" class="map-name-input" />
-          </div>
+  @if (canEdit()) {
+    <div class="control-panel-container" id="control-panel-container">
+      <div class="tab-buttons" id="tab-buttons" data-testid="tab-buttons">
+        <button
+          (click)="setActiveTab('map-details')"
+          [class.active]="activeTab === 'map-details'"
+          class="vertical-tab-btn"
+          data-testid="tab-map-details">
+          Map Details
+        </button>
+        <button
+          (click)="setActiveTab('grid')"
+          [class.active]="activeTab === 'grid'"
+          class="vertical-tab-btn"
+          data-testid="tab-grid">
+          Grid
+        </button>
+        <button
+          (click)="setActiveTab('variables')"
+          [class.active]="activeTab === 'variables'"
+          class="vertical-tab-btn"
+          data-testid="tab-variables">
+          Variables
+        </button>
+        @if (isOwner() || userRole === 'DM') {
+          <button
+            (click)="setActiveTab('members')"
+            [class.active]="activeTab === 'members'"
+            class="vertical-tab-btn"
+            data-testid="tab-members">
+            Members
+          </button>
         }
-        @if (activeTab === 'grid') {
-          <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
-            <h4>Grid Settings</h4>
-            <div class="grid-type-selector" data-testid="grid-type-selector">
-              <button
-                (click)="setGridType('square')"
-                [class.active]="gridType === 'square'"
-                class="grid-type-btn"
-                data-testid="grid-type-square">
-                Square
-              </button>
-              <button
-                (click)="setGridType('hex')"
-                [class.active]="gridType === 'hex'"
-                class="grid-type-btn"
-                data-testid="grid-type-hex">
-                Hex
-              </button>
+        <button
+          (click)="setActiveTab('actions')"
+          [class.active]="activeTab === 'actions'"
+          class="vertical-tab-btn"
+          data-testid="tab-actions">
+          Actions
+        </button>
+      </div>
+
+      <div class="control-panel"
+           id="control-panel"
+           [class.expanded]="isPanelExpanded"
+           data-testid="control-panel">
+        <div class="tab-content" id="tab-content">
+          @if (activeTab === 'map-details') {
+            <div class="control-section">
+              <h4>Map Image</h4>
+              <label class="file-upload-label">
+                <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;"/>
+                <span class="upload-button">Upload Image</span>
+              </label>
+              @if (mapData.imageUrl) {
+                <p class="image-status">✓ Image uploaded</p>
+              }
             </div>
-            @if (gridType === 'hex') {
-              <div class="hex-orientation-selector" data-testid="hex-orientation-selector">
+
+            <div class="control-section">
+              <h4>Map Name</h4>
+              <input type="text" [(ngModel)]="mapData.name" (input)="onMapNameChange()" class="map-name-input"/>
+            </div>
+          }
+          @if (activeTab === 'grid') {
+            <!-- Existing grid controls remain unchanged -->
+            <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
+              <h4>Grid Settings</h4>
+              <div class="grid-type-selector" data-testid="grid-type-selector">
                 <button
-                  (click)="setHexOrientation('flat')"
-                  [class.active]="hexOrientation === 'flat'"
+                  (click)="setGridType('square')"
+                  [class.active]="gridType === 'square'"
                   class="grid-type-btn"
-                  data-testid="hex-orientation-flat">
-                  Flat Top
+                  data-testid="grid-type-square">
+                  Square
                 </button>
                 <button
-                  (click)="setHexOrientation('pointy')"
-                  [class.active]="hexOrientation === 'pointy'"
+                  (click)="setGridType('hex')"
+                  [class.active]="gridType === 'hex'"
                   class="grid-type-btn"
-                  data-testid="hex-orientation-pointy">
-                  Pointy Top
+                  data-testid="grid-type-hex">
+                  Hex
                 </button>
               </div>
-            }
-            <button (click)="toggleGridLock()" [class.active]="!gridLocked" data-testid="grid-lock-toggle">
-              {{ gridLocked ? 'Unlock Grid' : 'Lock Grid' }}
-            </button>
-            <div class="grid-controls" [class.disabled]="gridLocked" data-testid="grid-controls">
-              <label>
-                Grid Size:
-                <input type="number" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10" max="200" data-testid="grid-size-input" />
-              </label>
+
+              @if (gridType === 'hex') {
+                <div class="hex-orientation-selector">
+                  <button
+                    (click)="setHexOrientation('flat')"
+                    [class.active]="hexOrientation === 'flat'"
+                    class="grid-type-btn">
+                    Flat
+                  </button>
+                  <button
+                    (click)="setHexOrientation('pointy')"
+                    [class.active]="hexOrientation === 'pointy'"
+                    class="grid-type-btn">
+                    Pointy
+                  </button>
+                </div>
+              }
+
+              <button
+                (click)="toggleGridLock()"
+                [class.active]="!gridLocked"
+                data-testid="toggle-grid-lock">
+                {{ gridLocked ? 'Unlock Grid' : 'Lock Grid' }}
+              </button>
+
+              <div class="grid-controls" [class.disabled]="gridLocked" data-testid="grid-controls">
+                <label>
+                  Grid Size:
+                  <input type="number" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10"
+                         max="200" data-testid="grid-size-input"/>
+                </label>
+              </div>
             </div>
-          </div>
-        }
-
-        @if (activeTab === 'variables') {
-          <div class="control-section" id="variables-section" data-testid="variables-section">
-            <h4>Variables</h4>
-            @if (selectedCell) {
-              <label>
-                Cell Name:
-                <input
-                  type="text"
-                  [(ngModel)]="selectedCellName"
-                  (input)="onCellNameChange()"
-                  class="map-name-input"
-                  placeholder="Enter cell name..."
-                />
-              </label>
-              <p class="cell-info">Row: {{ selectedCell.row }}, Col: {{ selectedCell.col }}</p>
-            } @else {
-              <p>Select a grid cell to edit its properties</p>
-            }
-          </div>
-        }
-
-        @if (activeTab === 'actions') {
-          <div class="control-section" id="actions-section" data-testid="actions-section">
-            <h4>Actions</h4>
-            <p>Action controls coming soon...</p>
-          </div>
-        }
+          }
+          @if (activeTab === 'variables') {
+            <div class="control-section">
+              <h4>Cell Variables</h4>
+              @if (selectedCell) {
+                <p class="cell-info">Selected: Row {{ selectedCell.row }}, Col {{ selectedCell.col }}</p>
+                <label>
+                  Cell Name:
+                  <input
+                    type="text"
+                    [(ngModel)]="selectedCellName"
+                    (input)="onCellNameChange()"
+                    class="map-name-input"
+                    placeholder="Enter cell name"/>
+                </label>
+              } @else {
+                <p class="cell-info">Click a grid cell to edit its variables</p>
+              }
+            </div>
+          }
+          @if (activeTab === 'members') {
+            <div class="control-section">
+              <h4>Members</h4>
+              <div class="members-list">
+                @for (member of members; track member.id) {
+                  <div class="member-item" [class.loading]="loadingMemberId === member.userId">
+                    <div class="member-info">
+                      @if (memberUsers.get(member.userId)?.profilePictureUrl) {
+                        <img
+                          [src]="memberUsers.get(member.userId)!.profilePictureUrl"
+                          alt="{{ memberUsers.get(member.userId)?.name }}"
+                          class="member-avatar"/>
+                      }
+                      <div class="member-details">
+                        <span
+                          class="member-name">{{ memberUsers.get(member.userId)?.name || 'User #' + member.userId }}</span>
+                        <span class="member-role-badge" [class]="'role-' + member.role.toLowerCase()">
+                          {{ member.role }}
+                        </span>
+                      </div>
+                    </div>
+                    @if (isOwner() && member.userId !== getCurrentUserId()) {
+                      <div class="member-actions">
+                        @if (member.role === 'PLAYER') {
+                          <button
+                            (click)="promoteMember(member.userId)"
+                            class="action-btn promote-btn"
+                            [disabled]="loadingMemberId === member.userId">
+                            Promote
+                          </button>
+                        }
+                        @if (member.role === 'DM') {
+                          <button
+                            (click)="demoteMember(member.userId)"
+                            class="action-btn demote-btn"
+                            [disabled]="loadingMemberId === member.userId">
+                            Demote
+                          </button>
+                          <button
+                            (click)="transferOwnership(member.userId)"
+                            class="action-btn transfer-btn"
+                            [disabled]="loadingMemberId === member.userId">
+                            Make Owner
+                          </button>
+                        }
+                        <button
+                          (click)="removeMember(member.userId)"
+                          class="action-btn remove-btn"
+                          [disabled]="loadingMemberId === member.userId">
+                          Remove
+                        </button>
+                      </div>
+                    }
+                    @if (!isOwner() && userRole === 'DM' && member.userId !== getCurrentUserId() && member.role === 'PLAYER') {
+                      <button
+                        (click)="promoteMember(member.userId)"
+                        class="action-btn promote-btn"
+                        [disabled]="loadingMemberId === member.userId">
+                        Promote
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (activeTab === 'actions') {
+            <div class="control-section">
+              <h4>Map Actions</h4>
+              <p>Additional actions will go here.</p>
+            </div>
+          }
+        </div>
       </div>
     </div>
-  </div>
+  }
 </div>

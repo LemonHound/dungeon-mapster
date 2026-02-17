@@ -3,6 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../config/environment';
 
+export interface MapMembership {
+  id: number;
+  mapId: number;
+  userId: number;
+  role: 'OWNER' | 'DM' | 'PLAYER';
+}
+
 export interface DungeonMap {
   id?: number;
   name: string;
@@ -18,6 +25,8 @@ export interface DungeonMap {
   mapOffsetY?: number;
   mapScale?: number;
   userId?: number;
+  joinCode?: string;
+  userRole?: 'OWNER' | 'DM' | 'PLAYER';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -37,6 +46,10 @@ export class MapService {
     return this.http.get<DungeonMap>(`${this.apiUrl}/${id}`);
   }
 
+  getMapByJoinCode(joinCode: string): Observable<DungeonMap> {
+    return this.http.get<DungeonMap>(`${this.apiUrl}/join/${joinCode}`);
+  }
+
   createMap(map: DungeonMap): Observable<DungeonMap> {
     return this.http.post<DungeonMap>(this.apiUrl, map);
   }
@@ -47,6 +60,30 @@ export class MapService {
 
   deleteMap(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  joinMap(joinCode: string): Observable<DungeonMap> {
+    return this.http.post<DungeonMap>(`${this.apiUrl}/join`, {joinCode});
+  }
+
+  getMembers(mapId: number): Observable<MapMembership[]> {
+    return this.http.get<MapMembership[]>(`${this.apiUrl}/${mapId}/members`);
+  }
+
+  promoteUser(mapId: number, targetUserId: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${mapId}/members/${targetUserId}/promote`, {});
+  }
+
+  demoteUser(mapId: number, targetUserId: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${mapId}/members/${targetUserId}/demote`, {});
+  }
+
+  transferOwnership(mapId: number, targetUserId: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/${mapId}/transfer`, {targetUserId});
+  }
+
+  removeMember(mapId: number, targetUserId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${mapId}/members/${targetUserId}`);
   }
 
   uploadImage(file: File): Observable<{ imageUrl: string }> {

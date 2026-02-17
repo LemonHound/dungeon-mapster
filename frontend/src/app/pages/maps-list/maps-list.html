@@ -1,38 +1,79 @@
 <div class="maps-container">
   <div class="maps-header">
     <h1>My Maps</h1>
-    <button class="create-button" (click)="createNewMap()">Create New Map</button>
+    <button (click)="createNewMap()" class="create-button">Create New Map</button>
+  </div>
+
+  <div class="join-section">
+    <h3>Join a Map</h3>
+    <div class="join-input-group">
+      <input
+        type="text"
+        [(ngModel)]="joinCode"
+        placeholder="Enter join code"
+        class="join-input"
+        (keyup.enter)="joinMapByCode()"
+      />
+      <button (click)="joinMapByCode()" class="join-button">Join</button>
+    </div>
   </div>
 
   @if (loading) {
     <div class="loading">Loading maps...</div>
-  }
-
-  @if (!loading && maps.length === 0) {
-    <div class="empty-state">
-      <p>You haven't created any maps yet.</p>
-      <button (click)="createNewMap()">Create Your First Map</button>
-    </div>
-  }
-
-  @if (!loading && maps.length > 0) {
-    <div class="maps-grid">
-      @for (map of maps; track map.id) {
-        <div class="map-card" (click)="openMap(map.id!)" (keypress)="openMap(map.id!)" tabindex="0">
-          <div class="map-thumbnail">
-            @if (map.imageUrl) {
-              <img [ngSrc]="getImageUrl(map.imageUrl)" [alt]="map.name" fill>
-            } @else {
-              <div class="no-image">No Image</div>
+  } @else {
+    @if (ownedMaps.length === 0 && joinedMaps.length === 0) {
+      <div class="empty-state">
+        <p>No maps yet. Create your first map to get started!</p>
+        <button (click)="createNewMap()">Create Map</button>
+      </div>
+    } @else {
+      @if (ownedMaps.length > 0) {
+        <div class="maps-section">
+          <h2>My Maps</h2>
+          <div class="maps-grid">
+            @for (map of ownedMaps; track map.id) {
+              <div class="map-card" (click)="openMap(map.id!)">
+                <div class="map-thumbnail">
+                  @if (map.imageUrl) {
+                    <img [ngSrc]="getImageUrl(map.imageUrl)" fill alt="{{ map.name }}" priority/>
+                  } @else {
+                    <div class="no-image">No image</div>
+                  }
+                </div>
+                <div class="map-info">
+                  <h3>{{ map.name }}</h3>
+                  <p class="map-meta">Owner • {{ map.updatedAt | date: 'short' }}</p>
+                </div>
+                <button (click)="deleteMap(map.id!, $event)" class="delete-button">Delete</button>
+              </div>
             }
           </div>
-          <div class="map-info">
-            <h3>{{ map.name }}</h3>
-            <p class="map-meta">Updated: {{ map.updatedAt | date:'short' }}</p>
-          </div>
-          <button class="delete-button" (click)="deleteMap(map.id!, $event)">Delete</button>
         </div>
       }
-    </div>
+
+      @if (joinedMaps.length > 0) {
+        <div class="maps-section">
+          <h2>Joined Maps</h2>
+          <div class="maps-grid">
+            @for (map of joinedMaps; track map.id) {
+              <div class="map-card" (click)="openMap(map.id!)">
+                <div class="map-thumbnail">
+                  @if (map.imageUrl) {
+                    <img [ngSrc]="getImageUrl(map.imageUrl)" fill alt="{{ map.name }}" priority/>
+                  } @else {
+                    <div class="no-image">No image</div>
+                  }
+                </div>
+                <div class="map-info">
+                  <h3>{{ map.name }}</h3>
+                  <p class="map-meta">{{ map.userRole }} • {{ map.updatedAt | date: 'short' }}</p>
+                </div>
+                <button (click)="leaveMap(map.id!, $event)" class="leave-button">Leave</button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
   }
 </div>

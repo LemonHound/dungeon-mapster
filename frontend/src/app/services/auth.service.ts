@@ -1,6 +1,6 @@
 import {Injectable, inject} from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import {BehaviorSubject} from 'rxjs';
+import {BehaviorSubject, Observable} from 'rxjs';
 
 export interface User {
   id: number;
@@ -68,5 +68,13 @@ export class AuthService {
     return new HttpHeaders({
       'Authorization': `Bearer ${token}`
     });
+  }
+
+  getUserById(id: number): Observable<User> {
+    return this.http.get<User>(`${this.API_URL}/users/${id}`);
+  }
+
+  getUsersByIds(userIds: number[]): Observable<User[]> {
+    return this.http.post<User[]>(`${this.API_URL}/users/batch`, userIds);
   }
 }
