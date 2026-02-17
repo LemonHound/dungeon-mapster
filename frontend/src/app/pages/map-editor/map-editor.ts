@@ -5,9 +5,12 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {GridCell, GridStrategy} from '../../models/grid-strategy.interface';
 import { SquareGridStrategy } from '../../models/square-grid.strategy';
 import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy';
-import { MapService, DungeonMap } from '../../services/map';
+import {MapService, DungeonMap, MapMembership} from '../../services/map';
 import { environment } from '../../config/environment';
 import {GridCellDataService} from '../../services/grid-cell-data.service';
+import {AuthService, User} from '../../services/auth.service';
+
+type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
 @Component({
   selector: 'app-map-editor',
@@ -20,6 +23,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private router = inject(Router);
   private mapService = inject(MapService);
   private gridCellDataService = inject(GridCellDataService);
+  private authService = inject(AuthService);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -52,7 +56,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public selectedCellName = '';
   private cellNameTimeout?: NodeJS.Timeout | number;
 
-  public activeTab: 'map-details' | 'grid' | 'variables' | 'actions' = 'grid';
+  public activeTab: TabType = 'grid';
   public isPanelExpanded = false;
 
   public mapData: DungeonMap = {
@@ -67,6 +71,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private mapId?: number;
   private saveTimeout?: NodeJS.Timeout | number;
+
+  public userRole: 'OWNER' | 'DM' | 'PLAYER' | null = null;
+  public members: MapMembership[] = [];
+  public memberUsers = new Map<number, User>();
+  public loadingMemberId: number | null = null;
 
 
   ngOnInit(): void {
@@ -92,6 +101,98 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     window.addEventListener('resize', () => this.resizeCanvas());
   }
 
+  canEdit(): boolean {
+    return this.userRole === 'OWNER' || this.userRole === 'DM';
+  }
+
+  isOwner(): boolean {
+    return this.userRole === 'OWNER';
+  }
+
+  getJoinUrl(): string {
+    if (!this.mapData.joinCode) return '';
+    return `${window.location.origin}/join/${this.mapData.joinCode}`;
+  }
+
+  copyJoinCode(): void {
+    if (!this.mapData.joinCode) return;
+    navigator.clipboard.writeText(this.mapData.joinCode);
+  }
+
+  copyJoinUrl(): void {
+    navigator.clipboard.writeText(this.getJoinUrl());
+  }
+
+  promoteMember(userId: number): void {
+    if (!this.mapId) return;
+    this.loadingMemberId = userId;
+    this.mapService.promoteUser(this.mapId, userId).subscribe({
+      next: () => {
+        this.loadingMemberId = null;
+        this.loadMembership();
+      },
+      error: (error) => {
+        console.error('Error promoting user:', error);
+        this.loadingMemberId = null;
+      }
+    });
+  }
+
+  demoteMember(userId: number): void {
+    if (!this.mapId) return;
+    this.loadingMemberId = userId;
+    this.mapService.demoteUser(this.mapId, userId).subscribe({
+      next: () => {
+        this.loadingMemberId = null;
+        this.loadMembership();
+      },
+      error: (error) => {
+        console.error('Error demoting user:', error);
+        this.loadingMemberId = null;
+      }
+    });
+  }
+
+  transferOwnership(userId: number): void {
+    if (!this.mapId) return;
+    if (!confirm('Are you sure you want to transfer ownership? You will become a DM.')) return;
+    this.loadingMemberId = userId;
+    this.mapService.transferOwnership(this.mapId, userId).subscribe({
+      next: () => {
+        this.loadingMemberId = null;
+        this.loadMembership();
+      },
+      error: (error) => {
+        console.error('Error transferring ownership:', error);
+        this.loadingMemberId = null;
+      }
+    });
+  }
+
+  removeMember(userId: number): void {
+    if (!this.mapId) return;
+    if (!confirm('Are you sure you want to remove this member?')) return;
+    this.loadingMemberId = userId;
+    this.mapService.removeMember(this.mapId, userId).subscribe({
+      next: () => {
+        this.loadingMemberId = null;
+        this.loadMembership();
+      },
+      error: (error) => {
+        console.error('Error removing member:', error);
+        this.loadingMemberId = null;
+      }
+    });
+  }
+
+  getCurrentUserId(): number | null {
+    let userId: number | null = null;
+    this.authService.currentUser$.subscribe(user => {
+      if (user) userId = user.id;
+    });
+    return userId;
+  }
+
   ngOnDestroy(): void {
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
@@ -104,12 +205,40 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       next: (map) => {
         this.mapData = map;
         this.mapId = map.id;
+        this.loadMembership();
         this.applyMapData();
       },
       error: (error) => {
         console.error('Error loading map:', error);
         this.router.navigate(['/maps']);
       }
+    });
+  }
+
+  private loadMembership(): void {
+    if (!this.mapId) return;
+
+    this.mapService.getMembers(this.mapId).subscribe({
+      next: (members) => {
+        this.members = members;
+
+        const userIds = members.map(m => m.userId);
+        this.authService.getUsersByIds(userIds).subscribe({
+          next: (users) => {
+            this.memberUsers.clear();
+            users.forEach(user => this.memberUsers.set(user.id, user));
+          },
+          error: (error) => console.error('Error loading user details:', error)
+        });
+
+        this.authService.currentUser$.subscribe(user => {
+          if (user) {
+            const membership = members.find(m => m.userId === user.id);
+            this.userRole = membership?.role || null;
+          }
+        });
+      },
+      error: (error) => console.error('Error loading members:', error)
     });
   }
 
@@ -174,6 +303,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private saveMap(): void {
+    if (!this.canEdit()) return;
     if (!this.mapId) return;
     this.mapData.gridType = this.gridType;
     this.mapData.gridSize = this.gridSize;
@@ -192,6 +322,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   onFileSelected(event: Event): void {
+    if (!this.canEdit()) return;
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
@@ -207,6 +338,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   onMapNameChange(): void {
+    if (!this.canEdit()) return;
     this.scheduleAutoSave();
   }
 
@@ -399,6 +531,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   toggleGridLock() {
+    if (!this.canEdit()) return;
     if (!this.gridLocked) {
       this.gridScaleRatio = this.gridScale / this.scale;
       this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
@@ -415,6 +548,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   setGridType(type: 'square' | 'hex') {
+    if (!this.canEdit()) return;
     this.gridType = type;
     if (type === 'square') {
       this.gridStrategy = new SquareGridStrategy();
@@ -426,6 +560,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   setHexOrientation(orientation: HexOrientation) {
+    if (!this.canEdit()) return;
     this.hexOrientation = orientation;
     if (this.gridType === 'hex') {
       this.gridStrategy = new HexGridStrategy(orientation);
@@ -434,7 +569,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: 'map-details' | 'grid' | 'variables' | 'actions') {
+  setActiveTab(tab: TabType) {
     if (this.activeTab === tab && this.isPanelExpanded) {
       this.isPanelExpanded = false;
     } else {
@@ -444,6 +579,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   onCellNameChange() {
+    if (!this.canEdit()) return;
     if (this.cellNameTimeout) {
       clearTimeout(this.cellNameTimeout);
     }
@@ -456,6 +592,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private saveCellName() {
+    if (!this.canEdit()) return;
     if (!this.selectedCell || !this.mapId) return;
 
     this.gridCellDataService.saveCell(

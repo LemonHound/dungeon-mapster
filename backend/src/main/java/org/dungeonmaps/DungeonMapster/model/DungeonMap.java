@@ -55,6 +55,9 @@ public class DungeonMap {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "join_code", unique = true)
+    private String joinCode;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

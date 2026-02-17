@@ -7,7 +7,12 @@
 
       <div class="auth-section">
         @if (currentUser) {
-          <span class="user-name">{{ currentUser.name }}</span>
+          <div class="user-info">
+            @if (currentUser.profilePictureUrl) {
+              <img [src]="currentUser.profilePictureUrl" alt="{{ currentUser.name }}" class="user-avatar"/>
+            }
+            <span class="user-name">{{ currentUser.name }}</span>
+          </div>
           <button (click)="logout()" class="logout-btn">Logout</button>
         } @else {
           <button (click)="login()" class="login-btn">Login with Google</button>
