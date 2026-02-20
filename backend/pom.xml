@@ -89,6 +89,12 @@
             <artifactId>postgres-socket-factory</artifactId>
             <version>1.21.0</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-storage</artifactId>
+            <version>2.40.0</version>
+        </dependency>
     </dependencies>
 
     <build>

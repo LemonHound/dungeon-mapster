@@ -1,15 +1,16 @@
 import {Component, OnInit, inject} from '@angular/core';
-import {CommonModule, NgOptimizedImage} from '@angular/common';
+import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import { Router } from '@angular/router';
 import {MapService, DungeonMap} from '../../services/map';
 import {AuthService} from '../../services/auth.service';
 import {forkJoin} from 'rxjs';
+import {HttpClient} from '@angular/common/http';
 
 @Component({
   selector: 'app-maps-list',
   standalone: true,
-  imports: [CommonModule, NgOptimizedImage, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './maps-list.html',
   styleUrl: './maps-list.css'
 })
@@ -17,6 +18,8 @@ export class MapsListComponent implements OnInit {
   private mapService = inject(MapService);
   private authService = inject(AuthService);
   private router = inject(Router);
+  private http = inject(HttpClient);
+  blobUrls = new Map<number, string>();
 
   maps: DungeonMap[] = [];
   ownedMaps: DungeonMap[] = [];
@@ -51,6 +54,7 @@ export class MapsListComponent implements OnInit {
             this.maps = maps;
             this.ownedMaps = maps.filter(m => m.userRole === 'OWNER');
             this.joinedMaps = maps.filter(m => m.userRole === 'DM' || m.userRole === 'PLAYER');
+            this.maps.forEach(map => this.loadImage(map));
             this.loading = false;
           },
           error: (error) => {
@@ -66,8 +70,12 @@ export class MapsListComponent implements OnInit {
     });
   }
 
-  getImageUrl(imageUrl: string): string {
-    return `${imageUrl}`;
+  loadImage(map: DungeonMap): void {
+    if (!map.imageUrl || this.blobUrls.has(map.id!)) return;
+    this.http.get(`/api/upload/image/${map.imageUrl}`, {responseType: 'blob'}).subscribe({
+      next: (blob) => this.blobUrls.set(map.id!, URL.createObjectURL(blob)),
+      error: (e) => console.error('Image failed to load:', e)
+    });
   }
 
   createNewMap(): void {

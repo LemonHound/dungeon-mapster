@@ -35,7 +35,8 @@
               <div class="map-card" (click)="openMap(map.id!)" (keypress)="openMap(map.id!)" tabindex="1">
                 <div class="map-thumbnail">
                   @if (map.imageUrl) {
-                    <img [ngSrc]="getImageUrl(map.imageUrl)" fill alt="{{ map.name }}" priority/>
+                    <img [src]="blobUrls.get(map.id!)" alt="{{ map.name }}"
+                         style="width:100%;height:100%;object-fit:cover;"/>
                   } @else {
                     <div class="no-image">No image</div>
                   }
@@ -61,7 +62,8 @@
               <div class="map-card" (click)="openMap(map.id!)" (keypress)="openMap(map.id!)" tabindex="0">
                 <div class="map-thumbnail">
                   @if (map.imageUrl) {
-                    <img [ngSrc]="getImageUrl(map.imageUrl)" fill alt="{{ map.name }}" priority/>
+                    <img [src]="blobUrls.get(map.id!)" alt="{{ map.name }}"
+                         style="width:100%;height:100%;object-fit:cover;"/>
                   } @else {
                     <div class="no-image">No image</div>
                   }

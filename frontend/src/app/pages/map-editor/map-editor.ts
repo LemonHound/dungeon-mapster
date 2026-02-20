@@ -8,6 +8,7 @@ import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy'
 import {MapService, DungeonMap, MapMembership} from '../../services/map';
 import {GridCellDataService} from '../../services/grid-cell-data.service';
 import {AuthService, User} from '../../services/auth.service';
+import {HttpClient} from '@angular/common/http';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -23,6 +24,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private mapService = inject(MapService);
   private gridCellDataService = inject(GridCellDataService);
   private authService = inject(AuthService);
+  private http = inject(HttpClient);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -281,14 +283,18 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private loadMapImageFromUrl(url: string): void {
-    this.mapImage = new Image();
-    this.mapImage.onload = () => {
-      this.render();
-    };
-    this.mapImage.onerror = (e) => {
-      console.error('Image failed to load:', e);
-    };
-    this.mapImage.src = `${url}`;
+    this.http.get(`/api/upload/image/${url}`, {responseType: 'blob'}).subscribe({
+      next: (blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        this.mapImage = new Image();
+        this.mapImage.onload = () => {
+          this.render();
+          URL.revokeObjectURL(objectUrl);
+        };
+        this.mapImage.src = objectUrl;
+      },
+      error: (e) => console.error('Image failed to load:', e)
+    });
   }
 
   private scheduleAutoSave(): void {
