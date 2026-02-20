@@ -30,9 +30,10 @@ browser/
 .DS_Store
 Thumbs.db
 
-# Build
+# Build & Deployment
 build/
 out/
+deploy.sh
 
 # Database
 *.db

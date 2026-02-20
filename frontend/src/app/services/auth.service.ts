@@ -16,7 +16,7 @@ export class AuthService {
   private http = inject(HttpClient);
 
   private readonly TOKEN_KEY = 'auth_token';
-  private readonly API_URL = 'http://localhost:8080/api';
+  private readonly API_URL = '/api';
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
@@ -26,7 +26,7 @@ export class AuthService {
   }
 
   login(): void {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+    window.location.href = '/oauth2/authorization/google';
   }
 
   handleAuthCallback(token: string): void {

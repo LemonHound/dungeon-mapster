@@ -4,7 +4,6 @@ import {FormsModule} from '@angular/forms';
 import { Router } from '@angular/router';
 import {MapService, DungeonMap} from '../../services/map';
 import {AuthService} from '../../services/auth.service';
-import {environment} from '../../config/environment';
 import {forkJoin} from 'rxjs';
 
 @Component({
@@ -68,7 +67,7 @@ export class MapsListComponent implements OnInit {
   }
 
   getImageUrl(imageUrl: string): string {
-    return `${environment.apiUrl}${imageUrl}`;
+    return `${imageUrl}`;
   }
 
   createNewMap(): void {

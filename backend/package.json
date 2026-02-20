@@ -3,6 +3,7 @@
   "scripts": {
     "start": "mvn spring-boot:run",
     "build": "mvn clean package",
-    "test": "mvn test"
+    "test": "mvn test",
+    "deploy": "gcloud builds submit --tag :latest"
   }
 }

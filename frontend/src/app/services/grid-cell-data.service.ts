@@ -1,7 +1,6 @@
 import {Injectable, inject} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
-import {environment} from '../config/environment';
 
 export interface GridCellData {
   id?: number;
@@ -16,7 +15,7 @@ export interface GridCellData {
 })
 export class GridCellDataService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api/grid-cells`;
+  private apiUrl = `/api/grid-cells`;
 
 
   getCell(mapId: number, row: number, col: number): Observable<GridCellData> {

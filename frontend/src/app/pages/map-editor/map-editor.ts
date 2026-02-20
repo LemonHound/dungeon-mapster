@@ -6,7 +6,6 @@ import {GridCell, GridStrategy} from '../../models/grid-strategy.interface';
 import { SquareGridStrategy } from '../../models/square-grid.strategy';
 import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy';
 import {MapService, DungeonMap, MapMembership} from '../../services/map';
-import { environment } from '../../config/environment';
 import {GridCellDataService} from '../../services/grid-cell-data.service';
 import {AuthService, User} from '../../services/auth.service';
 
@@ -289,7 +288,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.mapImage.onerror = (e) => {
       console.error('Image failed to load:', e);
     };
-    this.mapImage.src = `${environment.apiUrl}${url}`;
+    this.mapImage.src = `${url}`;
   }
 
   private scheduleAutoSave(): void {

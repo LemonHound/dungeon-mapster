@@ -1,7 +1,6 @@
 import {Injectable, inject} from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../config/environment';
 
 export interface MapMembership {
   id: number;
@@ -36,7 +35,7 @@ export interface DungeonMap {
 })
 export class MapService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api/maps`;
+  private apiUrl = `/api/maps`;
 
   getUserMaps(): Observable<DungeonMap[]> {
     return this.http.get<DungeonMap[]>(this.apiUrl);
@@ -89,6 +88,6 @@ export class MapService {
   uploadImage(file: File): Observable<{ imageUrl: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<{ imageUrl: string }>(`${environment.apiUrl}/api/upload/image`, formData);
+    return this.http.post<{ imageUrl: string }>(`/api/upload/image`, formData);
   }
 }
