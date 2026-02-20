@@ -1,63 +1,50 @@
 package org.dungeonmaps.DungeonMapster.controller;
 
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Storage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/upload")
 public class FileUploadController {
 
-    private static final String UPLOAD_DIR = "uploads/maps/";
+    private final Storage storage;
 
-    @GetMapping("/image/{filename:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename, Authentication authentication) {
-        try {
-            Path filePath = Paths.get(UPLOAD_DIR).resolve(filename);
-            Resource resource = new UrlResource(filePath.toUri());
+    @Value("${gcs.bucket-name}")
+    private String bucketName;
 
-            if (resource.exists() && resource.isReadable()) {
-                return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_TYPE, "image/png")
-                        .body(resource);
-            }
-            return ResponseEntity.notFound().build();
-        } catch (IOException e) {
-            return ResponseEntity.status(500).build();
-        }
+    public FileUploadController(Storage storage) {
+        this.storage = storage;
     }
 
     @PostMapping("/image")
     public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            String filename = UUID.randomUUID() + "_" + Objects.requireNonNull(file.getOriginalFilename()).replaceAll("[^a-zA-Z0-9.-]", "_");
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath);
-
-            Map<String, String> response = new HashMap<>();
-            response.put("imageUrl", "/uploads/maps/" + filename);
-
-            return ResponseEntity.ok(response);
+            String filename = UUID.randomUUID() + "_" + file.getOriginalFilename().replaceAll("[^a-zA-Z0-9.-]", "_");
+            BlobId blobId = BlobId.of(bucketName, "maps/" + filename);
+            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                    .setContentType(file.getContentType())
+                    .build();
+            storage.create(blobInfo, file.getBytes());
+            return ResponseEntity.ok(Map.of("imageUrl", filename));
         } catch (IOException e) {
             return ResponseEntity.status(500).build();
         }
+    }
+
+    @GetMapping("/image/{filename:.+}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String filename) {
+        byte[] bytes = storage.readAllBytes(bucketName, "maps/" + filename);
+        if (bytes == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+                .body(bytes);
     }
 }
