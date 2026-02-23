@@ -43,7 +43,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   private gridOffsetRatioX = this.gridOffsetX - this.offsetX;
   private gridOffsetRatioY = this.gridOffsetY - this.offsetY;
 
-  public gridType: 'square' | 'hex' = 'square';
+  public gridType: 'square' | 'hex' = 'hex';
   private gridStrategy: GridStrategy = new HexGridStrategy();
   public hexOrientation: HexOrientation = 'pointy';
 
