@@ -3,7 +3,8 @@ import {GridStrategy, GridCell, ImageBounds} from './grid-strategy.interface';
 export type HexOrientation = 'flat' | 'pointy';
 
 export class HexGridStrategy implements GridStrategy {
-  constructor(private orientation: HexOrientation = 'flat') {}
+  constructor(private orientation: HexOrientation = 'pointy') {
+  }
 
   draw(
     ctx: CanvasRenderingContext2D,

@@ -1,4 +1,10 @@
-<div class="map-editor" id="map-editor">
+@if (isDemo) {
+  <div class="demo-banner">
+    <span>You're exploring a live demo — sign up or log in to save your maps.</span>
+    <button (click)="loginAndSave()" class="demo-banner-btn">Log In</button>
+  </div>
+}
+<div class="map-editor" [class.has-banner]="isDemo" id="map-editor">
   <div class="canvas-container" id="canvas-container">
     <canvas #mapCanvas class="map-canvas" id="map-canvas"></canvas>
     <canvas #gridCanvas class="grid-canvas" id="grid-canvas"></canvas>
