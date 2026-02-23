@@ -3,7 +3,12 @@
     <h1 routerLink="/">Dungeon Mapster</h1>
     <nav>
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
-      <a routerLink="/maps" routerLinkActive="active">My Maps</a>
+      @if (!currentUser) {
+        <a routerLink="/demo" routerLinkActive="active">Demo</a>
+      }
+      @if (currentUser) {
+        <a routerLink="/maps" routerLinkActive="active">My Maps</a>
+      }
 
       <div class="auth-section">
         @if (currentUser) {

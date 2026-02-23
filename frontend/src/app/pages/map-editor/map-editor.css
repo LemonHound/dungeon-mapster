@@ -162,6 +162,10 @@
   z-index: 100;
 }
 
+.has-banner .control-panel-container {
+  top: 100px;
+}
+
 .tab-buttons {
   display: flex;
   flex-direction: column;
@@ -426,4 +430,34 @@
 .action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.demo-banner {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background-color: #1a252f;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 999;
+  font-size: 0.85rem;
+}
+
+.demo-banner-btn {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.demo-banner-btn:hover {
+  background-color: #357ae8;
 }

@@ -19,6 +19,7 @@ type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
   styleUrl: './map-editor.css',
 })
 export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
+  public isDemo = false;
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private mapService = inject(MapService);
@@ -609,5 +610,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       next: () => console.log('Cell name saved'),
       error: (error: unknown) => console.error('Error saving cell name:', error)
     });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  loginAndSave(): void {
   }
 }
