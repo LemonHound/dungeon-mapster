@@ -33,7 +33,7 @@ Thumbs.db
 # Build & Deployment
 build/
 out/
-deploy.sh
+feature_request.sh
 
 # Database
 *.db
