@@ -15,3 +15,16 @@
   checked for consistency / conflicts.
 * Provide suggestions for refactoring, simplification, or modernization. Unless otherwise directed, this should always
   be initiated through a new feature/folder and spec.md file.
+
+# General Instructions
+
+* You will be told if the conversation is either planning or implementation. If not told, ask.
+  * For planning, reference "Adding a New Feature" steps 1-4.
+  * For implementation, reference "Adding a New Feature" step 5.
+* When implementing a new feature, scan the full codebase for existing code to build on. All current code is synced to
+  the project files.
+* Check your work:
+  * Never re-invent the wheel
+  * Re-use existing methods and variables when feasible
+  * Watch for any potential issues or limitations with the solution provided, and call attention to them. If possible,
+    suggest a solution or request clarification.
