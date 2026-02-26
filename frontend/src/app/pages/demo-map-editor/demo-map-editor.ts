@@ -54,6 +54,11 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   public activeTab: TabType = 'grid';
   public isPanelExpanded = false;
 
+  public imageLoading = false;
+  public noImagePrompt = false;
+  public cacheStaleMessage: string | null = null;
+  public cacheStaleIsError = false;
+
   public mapData = {name: 'Demo Map', joinCode: null as string | null, imageUrl: null as string | null};
   public userRole: 'OWNER' | 'DM' | 'PLAYER' | null = 'DM';
   public members: MapMembership[] = [];
@@ -132,8 +137,10 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   onMapNameChange(): void {
   }
 
-  /* eslint-enable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars */
+  dismissCacheStale(): void {
+  }
 
+  /* eslint-enable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars */
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -166,7 +173,8 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   setGridType(type: 'square' | 'hex'): void {
     this.gridType = type;
-    this.gridStrategy = type === 'square' ? new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
+    this.gridStrategy = type === 'square' ?
+      new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
     this.render();
   }
 
@@ -241,9 +249,15 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private drawMap(): void {
-    this.mapCtx.clearRect(0, 0, this.mapCanvas.width, this.mapCanvas.height);
     if (!this.mapImage) return;
-    this.mapCtx.drawImage(this.mapImage, this.offsetX, this.offsetY, this.mapImage.width * this.scale, this.mapImage.height * this.scale);
+    this.mapCtx.clearRect(0, 0, this.mapCanvas.width, this.mapCanvas.height);
+    this.mapCtx.drawImage(
+      this.mapImage,
+      this.offsetX,
+      this.offsetY,
+      this.mapImage.width * this.scale,
+      this.mapImage.height * this.scale
+    );
   }
 
   private drawGrid(): void {
@@ -259,7 +273,17 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
       };
     }
 
-    this.gridStrategy.draw(this.gridCtx, this.gridCanvas.width, this.gridCanvas.height, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale, this.gridLocked, imageBounds);
+    this.gridStrategy.draw(
+      this.gridCtx,
+      this.gridCanvas.width,
+      this.gridCanvas.height,
+      this.gridSize,
+      this.gridOffsetX,
+      this.gridOffsetY,
+      this.gridScale,
+      this.gridLocked,
+      imageBounds
+    );
 
     if (this.selectedCell && this.gridStrategy.drawHighlight) {
       this.gridStrategy.drawHighlight(this.gridCtx, this.selectedCell, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale);
@@ -268,55 +292,55 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private setupMouseEvents(): void {
     let isDragging = false;
+    let dragMoved = false;
     let lastX = 0;
     let lastY = 0;
 
     this.gridCanvas.addEventListener('mousedown', (e) => {
-      this.mouseDownTime = Date.now();
       isDragging = true;
+      dragMoved = false;
       lastX = e.clientX;
       lastY = e.clientY;
-      e.preventDefault();
+      this.mouseDownTime = Date.now();
     });
 
     this.gridCanvas.addEventListener('mousemove', (e) => {
       if (!isDragging) return;
-      const deltaX = e.clientX - lastX;
-      const deltaY = e.clientY - lastY;
+      dragMoved = true;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
 
       if (this.gridLocked) {
-        this.offsetX += deltaX;
-        this.offsetY += deltaY;
+        this.offsetX += dx;
+        this.offsetY += dy;
         this.gridOffsetX = this.offsetX + this.gridOffsetRatioX;
         this.gridOffsetY = this.offsetY + this.gridOffsetRatioY;
       } else {
-        this.gridOffsetX += deltaX;
-        this.gridOffsetY += deltaY;
+        this.gridOffsetX += dx;
+        this.gridOffsetY += dy;
       }
-
-      lastX = e.clientX;
-      lastY = e.clientY;
       this.render();
     });
 
     this.gridCanvas.addEventListener('mouseup', (e) => {
-      const clickDuration = Date.now() - this.mouseDownTime;
-      if (clickDuration < 200 && this.gridLocked) {
+      if (!dragMoved) {
         const rect = this.gridCanvas.getBoundingClientRect();
-        this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
+        this.selectedCell = this.gridStrategy.getCellFromPoint(
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+          this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale
+        );
+        this.render();
       }
-      isDragging = false;
-    });
-
-    this.gridCanvas.addEventListener('mouseleave', () => {
       isDragging = false;
     });
 
     this.gridCanvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const rect = this.gridCanvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const mouseX = e.offsetX;
+      const mouseY = e.offsetY;
       const zoomIntensity = e.ctrlKey ? 0.002 : 0.1;
       const delta = e.deltaY > 0 ? -zoomIntensity : zoomIntensity;
 
@@ -341,15 +365,8 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.render();
     });
 
-    this.gridCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
-
-  private handleCellClick(x: number, y: number): void {
-    this.selectedCell = this.gridStrategy.getCellFromPoint(x, y, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale);
-    if (this.selectedCell) {
-      this.selectedCellName = this.cellData.get(`${this.selectedCell.row}:${this.selectedCell.col}`) || '';
-      if (!this.isPanelExpanded || this.activeTab !== 'variables') this.setActiveTab('variables');
-    }
-    this.render();
+    this.gridCanvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+    });
   }
 }
