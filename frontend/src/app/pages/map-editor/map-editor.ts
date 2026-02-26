@@ -8,6 +8,7 @@ import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy'
 import {MapService, DungeonMap, MapMembership} from '../../services/map';
 import {GridCellDataService} from '../../services/grid-cell-data.service';
 import {AuthService, User} from '../../services/auth.service';
+import {MapImageCacheService} from '../../services/map-image-cache.service';
 import {HttpClient} from '@angular/common/http';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
@@ -26,6 +27,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private gridCellDataService = inject(GridCellDataService);
   private authService = inject(AuthService);
   private http = inject(HttpClient);
+  private cacheService = inject(MapImageCacheService);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -61,6 +63,13 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public activeTab: TabType = 'grid';
   public isPanelExpanded = false;
 
+  public imageLoading = false;
+  public noImagePrompt = false;
+  public cacheStaleMessage: string | null = null;
+  public cacheStaleIsError = false;
+  private cacheStaleTimeout?: NodeJS.Timeout | number;
+  private hadLocalChangesWhenCachedServed = false;
+
   public mapData: DungeonMap = {
     name: 'Untitled Map',
     gridType: 'square',
@@ -78,7 +87,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public members: MapMembership[] = [];
   public memberUsers = new Map<number, User>();
   public loadingMemberId: number | null = null;
-
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -195,6 +203,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     return userId;
   }
 
+  dismissCacheStale(): void {
+    this.cacheStaleMessage = null;
+    if (this.cacheStaleTimeout) clearTimeout(this.cacheStaleTimeout);
+  }
+
   ngOnDestroy(): void {
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
@@ -277,32 +290,79 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
 
     if (this.mapData.imageUrl) {
-      this.loadMapImageFromUrl(this.mapData.imageUrl);
+      this.loadMapImageWithCache(this.mapData.imageUrl);
     } else {
-      this.render();
+      this.noImagePrompt = true;
     }
   }
 
-  private loadMapImageFromUrl(url: string): void {
-    this.http.get(`/api/upload/image/${url}`, {responseType: 'blob'}).subscribe({
-      next: (blob) => {
-        const objectUrl = URL.createObjectURL(blob);
-        this.mapImage = new Image();
-        this.mapImage.onload = () => {
-          this.render();
-          URL.revokeObjectURL(objectUrl);
-        };
-        this.mapImage.src = objectUrl;
-      },
-      error: (e) => console.error('Image failed to load:', e)
-    });
+  private async loadMapImageWithCache(imageUrl: string): Promise<void> {
+    const cached = await this.cacheService.get(imageUrl);
+
+    if (cached) {
+      const objectUrl = URL.createObjectURL(cached);
+      this.mapImage = new Image();
+      this.mapImage.onload = () => {
+        this.render();
+        URL.revokeObjectURL(objectUrl);
+      };
+      this.mapImage.src = objectUrl;
+      this.hadLocalChangesWhenCachedServed = false;
+
+      this.http.get(`/api/upload/image/${imageUrl}`, {responseType: 'blob'}).subscribe({
+        next: async (freshBlob) => {
+          const freshUrl = URL.createObjectURL(freshBlob);
+          const freshImg = new Image();
+          freshImg.onload = async () => {
+            const stale = this.mapImage!.naturalWidth !== freshImg.naturalWidth ||
+              this.mapImage!.naturalHeight !== freshImg.naturalHeight;
+            if (stale) {
+              this.mapImage = freshImg;
+              this.render();
+              await this.cacheService.put(imageUrl, freshBlob);
+              if (this.hadLocalChangesWhenCachedServed) {
+                this.cacheStaleIsError = true;
+                this.cacheStaleMessage = 'Your cached map image was out of sync. Any unsaved changes to this map have been lost.';
+              } else {
+                this.cacheStaleIsError = false;
+                this.cacheStaleMessage = 'Your cached map image was out of sync and has been updated.';
+                this.cacheStaleTimeout = setTimeout(() => this.cacheStaleMessage = null, 10000);
+              }
+            } else {
+              URL.revokeObjectURL(freshUrl);
+            }
+          };
+          freshImg.src = freshUrl;
+        },
+        error: (e) => console.error('Background image fetch failed:', e)
+      });
+    } else {
+      this.imageLoading = true;
+      this.http.get(`/api/upload/image/${imageUrl}`, {responseType: 'blob'}).subscribe({
+        next: async (blob) => {
+          await this.cacheService.put(imageUrl, blob);
+          const objectUrl = URL.createObjectURL(blob);
+          this.mapImage = new Image();
+          this.mapImage.onload = () => {
+            this.imageLoading = false;
+            this.render();
+            URL.revokeObjectURL(objectUrl);
+          };
+          this.mapImage.src = objectUrl;
+        },
+        error: (e) => {
+          console.error('Image failed to load:', e);
+          this.imageLoading = false;
+        }
+      });
+    }
   }
 
   private scheduleAutoSave(): void {
+    this.hadLocalChangesWhenCachedServed = true;
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
     }
-
     this.saveTimeout = setTimeout(() => {
       this.saveMap();
     }, 3000);
@@ -330,22 +390,120 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   onFileSelected(event: Event): void {
     if (!this.canEdit()) return;
     const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      this.mapService.uploadImage(file).subscribe({
-        next: (response) => {
-          this.mapData.imageUrl = response.imageUrl;
-          this.loadMapImageFromUrl(response.imageUrl);
-          this.scheduleAutoSave();
-        },
-        error: (error) => console.error('Error uploading image:', error)
-      });
-    }
+    if (!input.files?.length) return;
+
+    const file = input.files[0];
+    const localObjectUrl = URL.createObjectURL(file);
+
+    this.mapImage = new Image();
+    this.mapImage.onload = () => {
+      this.noImagePrompt = false;
+      this.render();
+    };
+    this.mapImage.src = localObjectUrl;
+
+    const previousImageUrl = this.mapData.imageUrl;
+
+    this.mapService.uploadImage(file).subscribe({
+      next: async (response) => {
+        URL.revokeObjectURL(localObjectUrl);
+        if (previousImageUrl) {
+          await this.cacheService.evict(previousImageUrl);
+        }
+        this.http.get(`/api/upload/image/${response.imageUrl}`, {responseType: 'blob'}).subscribe({
+          next: async (blob) => {
+            await this.cacheService.put(response.imageUrl, blob);
+          },
+          error: (e) => console.error('Failed to cache uploaded image:', e)
+        });
+        this.mapData.imageUrl = response.imageUrl;
+        this.scheduleAutoSave();
+      },
+      error: (error) => {
+        console.error('Error uploading image:', error);
+        URL.revokeObjectURL(localObjectUrl);
+      }
+    });
   }
 
   onMapNameChange(): void {
     if (!this.canEdit()) return;
     this.scheduleAutoSave();
+  }
+
+  onGridChange(): void {
+    this.scheduleAutoSave();
+    this.render();
+  }
+
+  toggleGridLock(): void {
+    if (!this.gridLocked) {
+      this.gridScaleRatio = this.gridScale / this.scale;
+      this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
+      this.gridOffsetRatioY = this.gridOffsetY - this.offsetY;
+    }
+    this.gridLocked = !this.gridLocked;
+    this.render();
+  }
+
+  setGridType(type: 'square' | 'hex'): void {
+    if (!this.canEdit()) return;
+    this.gridType = type;
+    this.gridStrategy = type === 'square' ?
+      new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
+    this.render();
+    this.scheduleAutoSave();
+  }
+
+  setHexOrientation(orientation: HexOrientation) {
+    if (!this.canEdit()) return;
+    this.hexOrientation = orientation;
+    if (this.gridType === 'hex') {
+      this.gridStrategy = new HexGridStrategy(orientation);
+      this.render();
+      this.scheduleAutoSave();
+    }
+  }
+
+  setActiveTab(tab: TabType) {
+    if (this.activeTab === tab && this.isPanelExpanded) {
+      this.isPanelExpanded = false;
+    } else {
+      this.activeTab = tab;
+      this.isPanelExpanded = true;
+    }
+  }
+
+  onCellNameChange() {
+    if (!this.canEdit()) return;
+    if (this.cellNameTimeout) {
+      clearTimeout(this.cellNameTimeout);
+    }
+
+    this.cellNameTimeout = setTimeout(() => {
+      if (this.selectedCell && this.mapId) {
+        this.saveCellName();
+      }
+    }, 300);
+  }
+
+  private saveCellName() {
+    if (!this.canEdit()) return;
+    if (!this.selectedCell || !this.mapId) return;
+
+    this.gridCellDataService.saveCell(
+      this.mapId,
+      this.selectedCell.row,
+      this.selectedCell.col,
+      this.selectedCellName
+    ).subscribe({
+      next: () => console.log('Cell name saved'),
+      error: (error: unknown) => console.error('Error saving cell name:', error)
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  loginAndSave(): void {
   }
 
   private resizeCanvas() {
@@ -364,9 +522,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private drawMap() {
-    if (!this.mapImage) return;
-
     this.mapCtx.clearRect(0, 0, this.mapCanvas.width, this.mapCanvas.height);
+    if (!this.mapImage) return;
     this.mapCtx.drawImage(
       this.mapImage,
       this.offsetX,
@@ -378,16 +535,15 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private drawGrid() {
     if (!this.gridCanvas || !this.gridCtx) return;
+    if (!this.mapImage) return;
 
     let imageBounds;
     if (this.mapImage) {
-      const imgWidth = this.mapImage.width * this.scale;
-      const imgHeight = this.mapImage.height * this.scale;
       imageBounds = {
         x: this.offsetX,
         y: this.offsetY,
-        width: imgWidth,
-        height: imgHeight
+        width: this.mapImage.width * this.scale,
+        height: this.mapImage.height * this.scale
       };
     }
 
@@ -415,7 +571,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  private setupMouseEvents() {
+  private setupMouseEvents(): void {
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -446,20 +602,15 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
       lastX = e.clientX;
       lastY = e.clientY;
-
       this.render();
     });
 
     this.gridCanvas.addEventListener('mouseup', (e) => {
       const clickDuration = Date.now() - this.mouseDownTime;
-
       if (clickDuration < 200 && this.gridLocked) {
         const rect = this.gridCanvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        this.handleCellClick(x, y);
+        this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-
       isDragging = false;
       if (!this.gridLocked) {
         this.scheduleAutoSave();
@@ -534,85 +685,5 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
 
     this.render();
-  }
-
-  toggleGridLock() {
-    if (!this.canEdit()) return;
-    if (!this.gridLocked) {
-      this.gridScaleRatio = this.gridScale / this.scale;
-      this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
-      this.gridOffsetRatioY = this.gridOffsetY - this.offsetY;
-    }
-    this.gridLocked = !this.gridLocked;
-    this.render();
-    this.saveMap();
-  }
-
-  onGridChange() {
-    this.render();
-    this.scheduleAutoSave();
-  }
-
-  setGridType(type: 'square' | 'hex') {
-    if (!this.canEdit()) return;
-    this.gridType = type;
-    if (type === 'square') {
-      this.gridStrategy = new SquareGridStrategy();
-    } else {
-      this.gridStrategy = new HexGridStrategy(this.hexOrientation);
-    }
-    this.render();
-    this.scheduleAutoSave();
-  }
-
-  setHexOrientation(orientation: HexOrientation) {
-    if (!this.canEdit()) return;
-    this.hexOrientation = orientation;
-    if (this.gridType === 'hex') {
-      this.gridStrategy = new HexGridStrategy(orientation);
-      this.render();
-      this.scheduleAutoSave();
-    }
-  }
-
-  setActiveTab(tab: TabType) {
-    if (this.activeTab === tab && this.isPanelExpanded) {
-      this.isPanelExpanded = false;
-    } else {
-      this.activeTab = tab;
-      this.isPanelExpanded = true;
-    }
-  }
-
-  onCellNameChange() {
-    if (!this.canEdit()) return;
-    if (this.cellNameTimeout) {
-      clearTimeout(this.cellNameTimeout);
-    }
-
-    this.cellNameTimeout = setTimeout(() => {
-      if (this.selectedCell && this.mapId) {
-        this.saveCellName();
-      }
-    }, 300);
-  }
-
-  private saveCellName() {
-    if (!this.canEdit()) return;
-    if (!this.selectedCell || !this.mapId) return;
-
-    this.gridCellDataService.saveCell(
-      this.mapId,
-      this.selectedCell.row,
-      this.selectedCell.col,
-      this.selectedCellName
-    ).subscribe({
-      next: () => console.log('Cell name saved'),
-      error: (error: unknown) => console.error('Error saving cell name:', error)
-    });
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  loginAndSave(): void {
   }
 }

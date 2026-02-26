@@ -4,10 +4,28 @@
     <button (click)="loginAndSave()" class="demo-banner-btn">Log In</button>
   </div>
 }
+@if (cacheStaleMessage) {
+  <div class="cache-stale-banner" [class.cache-stale-error]="cacheStaleIsError">
+    <span>{{ cacheStaleMessage }}</span>
+    @if (cacheStaleIsError) {
+      <button (click)="dismissCacheStale()" class="cache-stale-dismiss">Dismiss</button>
+    }
+  </div>
+}
 <div class="map-editor" [class.has-banner]="isDemo" id="map-editor">
   <div class="canvas-container" id="canvas-container">
     <canvas #mapCanvas class="map-canvas" id="map-canvas"></canvas>
     <canvas #gridCanvas class="grid-canvas" id="grid-canvas"></canvas>
+    @if (imageLoading) {
+      <div class="canvas-shimmer">
+        <span class="canvas-shimmer-label">Loading...</span>
+      </div>
+    }
+    @if (noImagePrompt) {
+      <div class="canvas-no-image">
+        <p>Upload a map image to get started</p>
+      </div>
+    }
   </div>
   @if (canEdit()) {
     <div class="control-panel-container" id="control-panel-container">
@@ -72,9 +90,22 @@
               <h4>Map Name</h4>
               <input type="text" [(ngModel)]="mapData.name" (input)="onMapNameChange()" class="map-name-input"/>
             </div>
+
+            @if (mapData.joinCode) {
+              <div class="control-section">
+                <h4>Join Code</h4>
+                <div class="join-code-display">
+                  <code>{{ mapData.joinCode }}</code>
+                  <button (click)="copyJoinCode()" class="copy-btn">Copy</button>
+                </div>
+                <div class="join-url-display">
+                  <input type="text" [value]="getJoinUrl()" readonly class="join-url-input"/>
+                  <button (click)="copyJoinUrl()" class="copy-btn">Copy URL</button>
+                </div>
+              </div>
+            }
           }
           @if (activeTab === 'grid') {
-            <!-- Existing grid controls remain unchanged -->
             <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
               <h4>Grid Settings</h4>
               <div class="grid-type-selector" data-testid="grid-type-selector">
@@ -154,21 +185,23 @@
                   <div class="member-item" [class.loading]="loadingMemberId === member.userId">
                     <div class="member-info">
                       @if (memberUsers.get(member.userId)?.profilePictureUrl) {
-                        <img
-                          [src]="memberUsers.get(member.userId)!.profilePictureUrl"
-                          alt="{{ memberUsers.get(member.userId)?.name }}"
-                          class="member-avatar"/>
+                        <img [src]="memberUsers.get(member.userId)?.profilePictureUrl" class="member-avatar"
+                             alt="avatar"/>
                       }
                       <div class="member-details">
                         <span
-                          class="member-name">{{ memberUsers.get(member.userId)?.name || 'User #' + member.userId }}</span>
-                        <span class="member-role-badge" [class]="'role-' + member.role.toLowerCase()">
-                          {{ member.role }}
-                        </span>
+                          class="member-name">{{ memberUsers.get(member.userId)?.name || 'User ' + member.userId }}</span>
+                        <span class="member-id">ID: {{ member.userId }}</span>
                       </div>
+                      <span class="member-role-badge"
+                            [class.role-owner]="member.role === 'OWNER'"
+                            [class.role-dm]="member.role === 'DM'"
+                            [class.role-player]="member.role === 'PLAYER'">
+                        {{ member.role }}
+                      </span>
                     </div>
-                    @if (isOwner() && member.userId !== getCurrentUserId()) {
-                      <div class="member-actions">
+                    <div class="member-actions">
+                      @if (isOwner() && member.userId !== getCurrentUserId()) {
                         @if (member.role === 'PLAYER') {
                           <button
                             (click)="promoteMember(member.userId)"
@@ -197,16 +230,16 @@
                           [disabled]="loadingMemberId === member.userId">
                           Remove
                         </button>
-                      </div>
-                    }
-                    @if (!isOwner() && userRole === 'DM' && member.userId !== getCurrentUserId() && member.role === 'PLAYER') {
-                      <button
-                        (click)="promoteMember(member.userId)"
-                        class="action-btn promote-btn"
-                        [disabled]="loadingMemberId === member.userId">
-                        Promote
-                      </button>
-                    }
+                      }
+                      @if (!isOwner() && userRole === 'DM' && member.userId !== getCurrentUserId() && member.role === 'PLAYER') {
+                        <button
+                          (click)="promoteMember(member.userId)"
+                          class="action-btn promote-btn"
+                          [disabled]="loadingMemberId === member.userId">
+                          Promote
+                        </button>
+                      }
+                    </div>
                   </div>
                 }
               </div>
