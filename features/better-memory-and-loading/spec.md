@@ -1,5 +1,9 @@
 # Optimistic Map Loading
 
+## Status
+
+Done
+
 ## Purpose
 
 Currently, the website takes a while to fetch resources from the bucket, especially larger image files for particularly

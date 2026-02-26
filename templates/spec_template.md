@@ -2,6 +2,10 @@
 
 Change this line to a name (2-6 words or so) that sufficiently captures what this feature is doing
 
+## Status
+
+Draft | Documentation | Implementation | Done
+
 ## Purpose
 
 What this feature accomplishes and why it exists.
