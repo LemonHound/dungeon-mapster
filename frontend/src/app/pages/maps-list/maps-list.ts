@@ -164,8 +164,7 @@ export class MapsListComponent implements OnInit {
           this.joinedMaps = this.joinedMaps.filter(m => m.id !== mapId);
           if (this.blobUrls[mapId]) {
             URL.revokeObjectURL(this.blobUrls[mapId]);
-            const {[mapId]: _, ...rest} = this.blobUrls;
-            this.blobUrls = rest;
+            this.blobUrls = Object.fromEntries(Object.entries(this.blobUrls).filter(([k]) => Number(k) !== mapId));
           }
         },
         error: (error) => console.error('Error deleting map:', error)
@@ -181,8 +180,7 @@ export class MapsListComponent implements OnInit {
           this.joinedMaps = this.joinedMaps.filter(m => m.id !== mapId);
           if (this.blobUrls[mapId]) {
             URL.revokeObjectURL(this.blobUrls[mapId]);
-            const {[mapId]: _, ...rest} = this.blobUrls;
-            this.blobUrls = rest;
+            this.blobUrls = Object.fromEntries(Object.entries(this.blobUrls).filter(([k]) => Number(k) !== mapId));
           }
         },
         error: (error) => console.error('Error leaving map:', error)

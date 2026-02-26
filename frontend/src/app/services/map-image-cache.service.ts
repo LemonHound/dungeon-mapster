@@ -33,6 +33,7 @@ export class MapImageCacheService {
       const cache = await caches.open(CACHE_NAME);
       await cache.put(this.key(imageUrl), new Response(blob));
     } catch {
+      console.log(`failed to put cache`);
     }
   }
 
@@ -42,6 +43,7 @@ export class MapImageCacheService {
       const cache = await caches.open(CACHE_NAME);
       await cache.delete(this.key(imageUrl));
     } catch {
+      console.log(`failed to evict cache`);
     }
   }
 
@@ -57,6 +59,7 @@ export class MapImageCacheService {
         }
       }
     } catch {
+      console.log(`failed to sweep cache`);
     }
   }
 }
