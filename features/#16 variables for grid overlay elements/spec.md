@@ -8,7 +8,17 @@ Draft
 
 ## Purpose
 
-What this feature accomplishes and why it exists.
+The DM and Owner should be able to create variables at the grid element level. These variables can be:
+
+- plain text inputs
+- picklist values
+- dates
+- numeric values (float, int, percentage)
+- text area inputs (plain text, markdown? TBD)
+
+once created, all grid overlay elements will automatically show these variables and allow changes to them by default.
+
+DMs and Owners can set variables as public or DM-only (radio), and set them to read-only (check box) if public.
 
 ## UX
 
