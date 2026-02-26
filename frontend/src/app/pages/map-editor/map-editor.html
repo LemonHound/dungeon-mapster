@@ -1,3 +1,17 @@
+@if (connectionStatus === 'reconnecting') {
+  <div class="reconnecting-banner">Reconnecting...</div>
+}
+@if (connectedUsers.length > 0) {
+  <div class="presence-bar">
+    @for (user of connectedUsers; track user.userId) {
+      <div
+        class="presence-dot"
+        [style.background-color]="user.color"
+        [title]="user.userName">
+      </div>
+    }
+  </div>
+}
 @if (isDemo) {
   <div class="demo-banner">
     <span>You're exploring a live demo — sign up or log in to save your maps.</span>
@@ -170,6 +184,8 @@
                     [(ngModel)]="selectedCellName"
                     (input)="onCellNameChange()"
                     class="map-name-input"
+                    [class.remote-focus]="remoteFieldFocus !== null"
+                    [style.border-color]="remoteFieldFocus ? remoteFieldFocus.color : null"
                     placeholder="Enter cell name"/>
                 </label>
               } @else {

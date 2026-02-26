@@ -57,6 +57,10 @@ export class MapService {
     return this.http.put<DungeonMap>(`${this.apiUrl}/${id}`, map);
   }
 
+  patchMapField(id: number, field: string, value: unknown): Observable<DungeonMap> {
+    return this.http.patch<DungeonMap>(`${this.apiUrl}/${id}`, {field, value});
+  }
+
   deleteMap(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }

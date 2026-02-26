@@ -7,6 +7,7 @@ import {SquareGridStrategy} from '../../models/square-grid.strategy';
 import {HexGridStrategy, HexOrientation} from '../../models/hex-grid.strategy';
 import {MapMembership} from '../../services/map';
 import {AuthService, User} from '../../services/auth.service';
+import {UserPresence, SelectionState, FieldFocusState} from '../../models/presence.model';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -64,6 +65,11 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   public members: MapMembership[] = [];
   public memberUsers = new Map<number, User>();
   public loadingMemberId: number | null = null;
+
+  public connectionStatus: 'connected' | 'reconnecting' | 'disconnected' = 'disconnected';
+  public connectedUsers: UserPresence[] = [];
+  public remoteSelections = new Map<number, SelectionState>();
+  public remoteFieldFocus: FieldFocusState | null = null;
 
   private cellData = new Map<string, string>();
   private localImageFile: File | null = null;
@@ -173,8 +179,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   setGridType(type: 'square' | 'hex'): void {
     this.gridType = type;
-    this.gridStrategy = type === 'square' ?
-      new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
+    this.gridStrategy = type === 'square' ? new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
     this.render();
   }
 
@@ -286,7 +291,11 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
     );
 
     if (this.selectedCell && this.gridStrategy.drawHighlight) {
+      this.gridCtx.save();
+      this.gridCtx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+      this.gridCtx.lineWidth = 3;
       this.gridStrategy.drawHighlight(this.gridCtx, this.selectedCell, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale);
+      this.gridCtx.restore();
     }
   }
 

@@ -4,6 +4,7 @@ import org.dungeonmaps.DungeonMapster.model.DungeonMap;
 import org.dungeonmaps.DungeonMapster.model.MapMembership;
 import org.dungeonmaps.DungeonMapster.model.MapMembership.MapRole;
 import org.dungeonmaps.DungeonMapster.service.DungeonMapService;
+import org.dungeonmaps.DungeonMapster.websocket.MapCacheService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +17,11 @@ import java.util.Map;
 public class DungeonMapController {
 
     private final DungeonMapService service;
+    private final MapCacheService mapCacheService;
 
-    public DungeonMapController(DungeonMapService service) {
+    public DungeonMapController(DungeonMapService service, MapCacheService mapCacheService) {
         this.service = service;
+        this.mapCacheService = mapCacheService;
     }
 
     @GetMapping
@@ -66,6 +69,33 @@ public class DungeonMapController {
                     return ResponseEntity.ok(service.saveMap(map));
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<DungeonMap> patchMap(@PathVariable Long id,
+                                               @RequestBody Map<String, Object> body,
+                                               Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        if (!service.hasRole(id, userId, MapRole.OWNER, MapRole.DM)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        String field = (String) body.get("field");
+        Object value = body.get("value");
+
+        if (field == null || value == null) return ResponseEntity.badRequest().build();
+
+        try {
+            return service.patchField(id, field, value)
+                    .map(saved -> {
+                        mapCacheService.updateMapField(id, field, value);
+                        mapCacheService.broadcastMapUpdate(id, field, value, userId);
+                        return ResponseEntity.ok(saved);
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @DeleteMapping("/{id}")

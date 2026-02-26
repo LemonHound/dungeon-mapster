@@ -83,6 +83,27 @@ public class DungeonMapService {
     }
 
     @Transactional
+    public Optional<DungeonMap> patchField(Long mapId, String field, Object value) {
+        return mapRepository.findById(mapId).map(map -> {
+            switch (field) {
+                case "name" -> map.setName((String) value);
+                case "gridType" -> map.setGridType((String) value);
+                case "gridSize" -> map.setGridSize(((Number) value).intValue());
+                case "gridOffsetX" -> map.setGridOffsetX(((Number) value).doubleValue());
+                case "gridOffsetY" -> map.setGridOffsetY(((Number) value).doubleValue());
+                case "gridRotation" -> map.setGridRotation(((Number) value).doubleValue());
+                case "gridScale" -> map.setGridScale(((Number) value).doubleValue());
+                case "hexOrientation" -> map.setHexOrientation((String) value);
+                case "mapOffsetX" -> map.setMapOffsetX(((Number) value).doubleValue());
+                case "mapOffsetY" -> map.setMapOffsetY(((Number) value).doubleValue());
+                case "mapScale" -> map.setMapScale(((Number) value).doubleValue());
+                default -> throw new IllegalArgumentException("Unknown field: " + field);
+            }
+            return mapRepository.save(map);
+        });
+    }
+
+    @Transactional
     public boolean joinMap(String joinCode, Long userId) {
         Optional<DungeonMap> map = mapRepository.findByJoinCode(joinCode);
         if (map.isEmpty()) return false;

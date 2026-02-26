@@ -93,9 +93,6 @@ export class SquareGridStrategy implements GridStrategy {
     const effectiveSize = cellSize * scale;
     const x = offsetX + cell.col * effectiveSize;
     const y = offsetY + cell.row * effectiveSize;
-
-    ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
-    ctx.lineWidth = 3;
     ctx.strokeRect(x, y, effectiveSize, effectiveSize);
   }
 }
