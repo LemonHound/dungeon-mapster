@@ -1,0 +1,50 @@
+export interface UserPresence {
+  userId: number;
+  userName: string;
+  color: string;
+  role: 'OWNER' | 'DM' | 'PLAYER';
+}
+
+export interface SelectionState {
+  userId: number;
+  row: number;
+  col: number;
+  color: string;
+}
+
+export interface FieldFocusState {
+  userId: number;
+  row: number;
+  col: number;
+  field: string;
+  color: string;
+}
+
+export interface FieldFlags {
+  isDmOnly: boolean;
+  isReadOnly: boolean;
+}
+
+export type WsMessage =
+  | { type: 'USER_JOINED'; userId: number; userName: string; color: string; role: string }
+  | { type: 'USER_LEFT'; userId: number }
+  | { type: 'SELECTION'; userId: number; row: number; col: number; color: string }
+  | { type: 'FIELD_FOCUS'; userId: number; row: number; col: number; field: string; color: string }
+  | { type: 'FIELD_BLUR'; userId: number }
+  | {
+  type: 'CELL_UPDATE';
+  mapId: number;
+  row: number;
+  col: number;
+  field: string;
+  fieldFlags: FieldFlags;
+  value: string;
+  userId: number
+}
+  | { type: 'MAP_UPDATE'; mapId: number; field: string; fieldFlags: FieldFlags; value: unknown; userId: number }
+  | {
+  type: 'FULL_STATE';
+  mapData: unknown;
+  cellData: { row: number; col: number; name: string }[];
+  users: UserPresence[]
+};

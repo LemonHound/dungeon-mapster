@@ -1,15 +1,18 @@
 import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject} from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import {CommonModule} from '@angular/common';
+import {FormsModule} from '@angular/forms';
+import {ActivatedRoute, Router} from '@angular/router';
 import {GridCell, GridStrategy} from '../../models/grid-strategy.interface';
-import { SquareGridStrategy } from '../../models/square-grid.strategy';
-import { HexGridStrategy, HexOrientation } from '../../models/hex-grid.strategy';
+import {SquareGridStrategy} from '../../models/square-grid.strategy';
+import {HexGridStrategy, HexOrientation} from '../../models/hex-grid.strategy';
 import {MapService, DungeonMap, MapMembership} from '../../services/map';
 import {GridCellDataService} from '../../services/grid-cell-data.service';
 import {AuthService, User} from '../../services/auth.service';
 import {MapImageCacheService} from '../../services/map-image-cache.service';
+import {WebSocketService} from '../../services/websocket.service';
 import {HttpClient} from '@angular/common/http';
+import {UserPresence, SelectionState, FieldFocusState, WsMessage} from '../../models/presence.model';
+import {Subscription} from 'rxjs';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -28,6 +31,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private authService = inject(AuthService);
   private http = inject(HttpClient);
   private cacheService = inject(MapImageCacheService);
+  private wsService = inject(WebSocketService);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -58,7 +62,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private mouseDownTime = 0;
   public selectedCell: GridCell | null = null;
   public selectedCellName = '';
-  private cellNameTimeout?: NodeJS.Timeout | number;
+  private cellNameTimeout?: ReturnType<typeof setTimeout>;
 
   public activeTab: TabType = 'grid';
   public isPanelExpanded = false;
@@ -67,7 +71,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public noImagePrompt = false;
   public cacheStaleMessage: string | null = null;
   public cacheStaleIsError = false;
-  private cacheStaleTimeout?: NodeJS.Timeout | number;
+  private cacheStaleTimeout?: ReturnType<typeof setTimeout>;
   private hadLocalChangesWhenCachedServed = false;
 
   public mapData: DungeonMap = {
@@ -81,12 +85,20 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   };
 
   private mapId?: number;
-  private saveTimeout?: NodeJS.Timeout | number;
+  private saveTimeout?: ReturnType<typeof setTimeout>;
 
   public userRole: 'OWNER' | 'DM' | 'PLAYER' | null = null;
   public members: MapMembership[] = [];
   public memberUsers = new Map<number, User>();
   public loadingMemberId: number | null = null;
+
+  public connectionStatus: 'connected' | 'reconnecting' | 'disconnected' = 'disconnected';
+  public connectedUsers: UserPresence[] = [];
+  public remoteSelections = new Map<number, SelectionState>();
+  public remoteFieldFocus: FieldFocusState | null = null;
+
+  private wsSub?: Subscription;
+  private statusSub?: Subscription;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -99,7 +111,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     this.mapCanvas = this.mapCanvasRef.nativeElement;
     this.gridCanvas = this.gridCanvasRef.nativeElement;
     this.mapCtx = this.mapCanvas.getContext('2d')!;
@@ -107,7 +119,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.resizeCanvas();
     this.setupMouseEvents();
-
     window.addEventListener('resize', () => this.resizeCanvas());
   }
 
@@ -213,6 +224,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       clearTimeout(this.saveTimeout);
       this.saveMap();
     }
+    this.wsSub?.unsubscribe();
+    this.statusSub?.unsubscribe();
+    this.wsService.disconnect();
   }
 
   private loadMap(id: number): void {
@@ -250,6 +264,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
           if (user) {
             const membership = members.find(m => m.userId === user.id);
             this.userRole = membership?.role || null;
+            if (this.mapId) this.connectWebSocket(this.mapId);
           }
         });
       },
@@ -257,12 +272,119 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     });
   }
 
+  private connectWebSocket(mapId: number): void {
+    this.wsService.connect(mapId);
+
+    this.statusSub = this.wsService.connectionStatus$.subscribe(status => {
+      this.connectionStatus = status;
+    });
+
+    this.wsSub = this.wsService.messages$.subscribe(msg => this.handleWsMessage(msg));
+  }
+
+  private handleWsMessage(msg: WsMessage): void {
+    switch (msg.type) {
+      case 'FULL_STATE': {
+        this.connectedUsers = msg.users;
+        break;
+      }
+      case 'USER_JOINED': {
+        const existing = this.connectedUsers.find(u => u.userId === msg.userId);
+        if (!existing) {
+          this.connectedUsers = [...this.connectedUsers, {
+            userId: msg.userId,
+            userName: msg.userName,
+            color: msg.color,
+            role: msg.role as UserPresence['role'],
+          }];
+        }
+        break;
+      }
+      case 'USER_LEFT': {
+        this.connectedUsers = this.connectedUsers.filter(u => u.userId !== msg.userId);
+        this.remoteSelections.delete(msg.userId);
+        if (this.remoteFieldFocus?.userId === msg.userId) this.remoteFieldFocus = null;
+        this.render();
+        break;
+      }
+      case 'SELECTION': {
+        this.remoteSelections.set(msg.userId, {userId: msg.userId, row: msg.row, col: msg.col, color: msg.color});
+        this.render();
+        break;
+      }
+      case 'FIELD_FOCUS': {
+        this.remoteFieldFocus = {userId: msg.userId, row: msg.row, col: msg.col, field: msg.field, color: msg.color};
+        break;
+      }
+      case 'FIELD_BLUR': {
+        if (this.remoteFieldFocus?.userId === msg.userId) this.remoteFieldFocus = null;
+        break;
+      }
+      case 'CELL_UPDATE': {
+        if (
+          this.selectedCell?.row === msg.row &&
+          this.selectedCell?.col === msg.col &&
+          msg.field === 'name'
+        ) {
+          this.selectedCellName = msg.value;
+        }
+        break;
+      }
+      case 'MAP_UPDATE': {
+        this.applyRemoteMapField(msg.field, msg.value);
+        break;
+      }
+    }
+  }
+
+  private applyRemoteMapField(field: string, value: unknown): void {
+    switch (field) {
+      case 'name':
+        this.mapData.name = value as string;
+        break;
+      case 'gridType':
+        this.gridType = value as 'square' | 'hex';
+        this.mapData.gridType = this.gridType;
+        this.gridStrategy = this.gridType === 'square' ? new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
+        break;
+      case 'gridSize':
+        this.gridSize = Number(value);
+        break;
+      case 'gridOffsetX':
+        this.gridOffsetX = Number(value);
+        break;
+      case 'gridOffsetY':
+        this.gridOffsetY = Number(value);
+        break;
+      case 'gridScale':
+        this.gridScale = Number(value);
+        break;
+      case 'gridRotation':
+        this.mapData.gridRotation = Number(value);
+        break;
+      case 'hexOrientation':
+        this.hexOrientation = value as HexOrientation;
+        if (this.gridType === 'hex') this.gridStrategy = new HexGridStrategy(this.hexOrientation);
+        break;
+      case 'mapOffsetX':
+        this.offsetX = Number(value);
+        break;
+      case 'mapOffsetY':
+        this.offsetY = Number(value);
+        break;
+      case 'mapScale':
+        this.scale = Number(value);
+        break;
+    }
+    this.render();
+  }
+
   private createInitialMap(): void {
     this.mapService.createMap(this.mapData).subscribe({
       next: (created) => {
         this.mapData = created;
         this.mapId = created.id;
-        this.router.navigate(['/map-editor', this.mapId], { replaceUrl: true });
+        this.router.navigate(['/map-editor', this.mapId], {replaceUrl: true});
       },
       error: (error) => console.error('Error creating map:', error)
     });
@@ -360,12 +482,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private scheduleAutoSave(): void {
     this.hadLocalChangesWhenCachedServed = true;
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
-    this.saveTimeout = setTimeout(() => {
-      this.saveMap();
-    }, 3000);
+    if (this.saveTimeout) clearTimeout(this.saveTimeout);
+    this.saveTimeout = setTimeout(() => this.saveMap(), 3000);
   }
 
   private saveMap(): void {
@@ -407,9 +525,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.mapService.uploadImage(file).subscribe({
       next: async (response) => {
         URL.revokeObjectURL(localObjectUrl);
-        if (previousImageUrl) {
-          await this.cacheService.evict(previousImageUrl);
-        }
+        if (previousImageUrl) await this.cacheService.evict(previousImageUrl);
         this.http.get(`/api/upload/image/${response.imageUrl}`, {responseType: 'blob'}).subscribe({
           next: async (blob) => {
             await this.cacheService.put(response.imageUrl, blob);
@@ -449,13 +565,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   setGridType(type: 'square' | 'hex'): void {
     if (!this.canEdit()) return;
     this.gridType = type;
-    this.gridStrategy = type === 'square' ?
-      new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
+    this.gridStrategy = type === 'square' ? new SquareGridStrategy() : new HexGridStrategy(this.hexOrientation);
     this.render();
     this.scheduleAutoSave();
   }
 
-  setHexOrientation(orientation: HexOrientation) {
+  setHexOrientation(orientation: HexOrientation): void {
     if (!this.canEdit()) return;
     this.hexOrientation = orientation;
     if (this.gridType === 'hex') {
@@ -465,7 +580,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: TabType) {
+  setActiveTab(tab: TabType): void {
     if (this.activeTab === tab && this.isPanelExpanded) {
       this.isPanelExpanded = false;
     } else {
@@ -474,10 +589,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  onCellNameChange() {
+  onCellNameChange(): void {
     if (!this.canEdit()) return;
-    if (this.cellNameTimeout) {
-      clearTimeout(this.cellNameTimeout);
+    if (this.cellNameTimeout) clearTimeout(this.cellNameTimeout);
+
+    if (this.selectedCell) {
+      this.wsService.sendFieldFocus(this.selectedCell.row, this.selectedCell.col, 'name');
     }
 
     this.cellNameTimeout = setTimeout(() => {
@@ -487,7 +604,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }, 300);
   }
 
-  private saveCellName() {
+  private saveCellName(): void {
     if (!this.canEdit()) return;
     if (!this.selectedCell || !this.mapId) return;
 
@@ -497,7 +614,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.selectedCell.col,
       this.selectedCellName
     ).subscribe({
-      next: () => console.log('Cell name saved'),
+      next: () => {
+        this.wsService.sendFieldBlur();
+      },
       error: (error: unknown) => console.error('Error saving cell name:', error)
     });
   }
@@ -506,22 +625,21 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   loginAndSave(): void {
   }
 
-  private resizeCanvas() {
+  private resizeCanvas(): void {
     const container = this.mapCanvas.parentElement!;
     this.mapCanvas.width = container.clientWidth;
     this.mapCanvas.height = container.clientHeight;
     this.gridCanvas.width = container.clientWidth;
     this.gridCanvas.height = container.clientHeight;
-
     this.render();
   }
 
-  private render() {
+  private render(): void {
     this.drawMap();
     this.drawGrid();
   }
 
-  private drawMap() {
+  private drawMap(): void {
     this.mapCtx.clearRect(0, 0, this.mapCanvas.width, this.mapCanvas.height);
     if (!this.mapImage) return;
     this.mapCtx.drawImage(
@@ -533,19 +651,16 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     );
   }
 
-  private drawGrid() {
+  private drawGrid(): void {
     if (!this.gridCanvas || !this.gridCtx) return;
     if (!this.mapImage) return;
 
-    let imageBounds;
-    if (this.mapImage) {
-      imageBounds = {
-        x: this.offsetX,
-        y: this.offsetY,
-        width: this.mapImage.width * this.scale,
-        height: this.mapImage.height * this.scale
-      };
-    }
+    const imageBounds = {
+      x: this.offsetX,
+      y: this.offsetY,
+      width: this.mapImage.width * this.scale,
+      height: this.mapImage.height * this.scale
+    };
 
     this.gridStrategy.draw(
       this.gridCtx,
@@ -559,15 +674,36 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       imageBounds
     );
 
-    if (this.selectedCell && this.gridStrategy.drawHighlight) {
-      this.gridStrategy.drawHighlight(
-        this.gridCtx,
-        this.selectedCell,
-        this.gridSize,
-        this.gridOffsetX,
-        this.gridOffsetY,
-        this.gridScale
-      );
+    if (this.gridStrategy.drawHighlight) {
+      if (this.selectedCell) {
+        this.gridCtx.save();
+        this.gridCtx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+        this.gridCtx.lineWidth = 3;
+        this.gridStrategy.drawHighlight(
+          this.gridCtx,
+          this.selectedCell,
+          this.gridSize,
+          this.gridOffsetX,
+          this.gridOffsetY,
+          this.gridScale
+        );
+        this.gridCtx.restore();
+      }
+
+      this.remoteSelections.forEach((sel) => {
+        this.gridCtx.save();
+        this.gridCtx.strokeStyle = sel.color;
+        this.gridCtx.lineWidth = 3;
+        this.gridStrategy.drawHighlight!(
+          this.gridCtx,
+          {row: sel.row, col: sel.col},
+          this.gridSize,
+          this.gridOffsetX,
+          this.gridOffsetY,
+          this.gridScale
+        );
+        this.gridCtx.restore();
+      });
     }
   }
 
@@ -606,12 +742,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     });
 
     this.gridCanvas.addEventListener('mouseup', (e) => {
+      isDragging = false;
       const clickDuration = Date.now() - this.mouseDownTime;
       if (clickDuration < 200 && this.gridLocked) {
         const rect = this.gridCanvas.getBoundingClientRect();
         this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-      isDragging = false;
       if (!this.gridLocked) {
         this.scheduleAutoSave();
       }
@@ -663,25 +799,24 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     });
   }
 
-  private handleCellClick(x: number, y: number) {
+  private handleCellClick(x: number, y: number): void {
     this.selectedCell = this.gridStrategy.getCellFromPoint(
-      x,
-      y,
-      this.gridSize,
-      this.gridOffsetX,
-      this.gridOffsetY,
-      this.gridScale
+      x, y, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale
     );
 
-    if (this.selectedCell && this.mapId) {
-      this.gridCellDataService.getCell(
-        this.mapId,
-        this.selectedCell.row,
-        this.selectedCell.col
-      ).subscribe({
-        next: (cellData) => this.selectedCellName = cellData.name || '',
-        error: () => this.selectedCellName = ''
-      });
+    if (this.selectedCell) {
+      this.wsService.sendSelection(this.selectedCell.row, this.selectedCell.col);
+
+      if (this.mapId) {
+        this.gridCellDataService.getCell(
+          this.mapId,
+          this.selectedCell.row,
+          this.selectedCell.col
+        ).subscribe({
+          next: (cellData) => this.selectedCellName = cellData.name || '',
+          error: () => this.selectedCellName = ''
+        });
+      }
     }
 
     this.render();

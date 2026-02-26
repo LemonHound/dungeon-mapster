@@ -367,6 +367,11 @@
   transition: background 0.2s;
 }
 
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .promote-btn {
   background: #27ae60;
   color: white;
@@ -427,9 +432,10 @@
   color: #2c3e50;
 }
 
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.member-role {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+  text-transform: uppercase;
 }
 
 .demo-banner {
@@ -543,4 +549,41 @@
 
 .cache-stale-dismiss:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.reconnecting-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #e67e22;
+  color: white;
+  text-align: center;
+  padding: 6px;
+  z-index: 1001;
+  font-size: 0.85rem;
+}
+
+.presence-bar {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 998;
+}
+
+.presence-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  cursor: default;
+}
+
+.remote-focus {
+  border-width: 2px;
+  border-style: solid;
+  outline: none;
 }

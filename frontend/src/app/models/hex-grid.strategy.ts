@@ -31,13 +31,13 @@ export class HexGridStrategy implements GridStrategy {
   }
 
   private drawFlatHexGrid(
-      ctx: CanvasRenderingContext2D,
-      size: number,
-      offsetX: number,
-      offsetY: number,
-      canvasWidth: number,
-      canvasHeight: number,
-      imageBounds?: ImageBounds
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    offsetX: number,
+    offsetY: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    imageBounds?: ImageBounds
   ): void {
     const width = size * 2;
     const height = Math.sqrt(3) * size;
@@ -74,13 +74,13 @@ export class HexGridStrategy implements GridStrategy {
   }
 
   private drawPointyHexGrid(
-      ctx: CanvasRenderingContext2D,
-      size: number,
-      offsetX: number,
-      offsetY: number,
-      canvasWidth: number,
-      canvasHeight: number,
-      imageBounds?: ImageBounds
+    ctx: CanvasRenderingContext2D,
+    size: number,
+    offsetX: number,
+    offsetY: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    imageBounds?: ImageBounds
   ): void {
     const width = Math.sqrt(3) * size;
     const height = size * 2;
@@ -117,11 +117,11 @@ export class HexGridStrategy implements GridStrategy {
   }
 
   private hexOverlapsRect(
-      centerX: number,
-      centerY: number,
-      size: number,
-      rotation: number,
-      rect: ImageBounds
+    centerX: number,
+    centerY: number,
+    size: number,
+    rotation: number,
+    rect: ImageBounds
   ): boolean {
     const hexRadius = size * 1.2;
 
@@ -134,11 +134,11 @@ export class HexGridStrategy implements GridStrategy {
   }
 
   private drawHexagon(
-      ctx: CanvasRenderingContext2D,
-      centerX: number,
-      centerY: number,
-      size: number,
-      rotation: number
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    centerY: number,
+    size: number,
+    rotation: number
   ): void {
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
@@ -189,12 +189,12 @@ export class HexGridStrategy implements GridStrategy {
   }
 
   drawHighlight(
-      ctx: CanvasRenderingContext2D,
-      cell: GridCell,
-      cellSize: number,
-      offsetX: number,
-      offsetY: number,
-      scale: number
+    ctx: CanvasRenderingContext2D,
+    cell: GridCell,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    scale: number
   ): void {
     const size = cellSize * scale;
 
@@ -206,9 +206,6 @@ export class HexGridStrategy implements GridStrategy {
       const yOffset = cell.col % 2 === 0 ? 0 : vertDistance / 2;
       const centerX = offsetX + cell.col * horizDistance + size;
       const centerY = offsetY + cell.row * vertDistance + height / 2 + yOffset;
-
-      ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
-      ctx.lineWidth = 3;
       this.drawHexagon(ctx, centerX, centerY, size, 0);
     } else {
       const width = Math.sqrt(3) * size;
@@ -218,9 +215,6 @@ export class HexGridStrategy implements GridStrategy {
       const xOffset = cell.row % 2 === 0 ? 0 : horizDistance / 2;
       const centerX = offsetX + cell.col * horizDistance + width / 2 + xOffset;
       const centerY = offsetY + cell.row * vertDistance + size;
-
-      ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
-      ctx.lineWidth = 3;
       this.drawHexagon(ctx, centerX, centerY, size, 30);
     }
   }
