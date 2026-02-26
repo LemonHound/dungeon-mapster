@@ -1,4 +1,6 @@
-# Editor Control Panel UX
+# Feature Name
+
+Change this line to a name (2-6 words or so) that sufficiently captures what this feature is doing
 
 ## Status
 
@@ -6,10 +8,7 @@ Draft
 
 ## Purpose
 
-The map editor's fly-out control panel currently requires manual interaction to open and navigate. There are cases
-where the correct panel state should be inferred from context — for example, opening a map with no image should
-surface the image upload UI immediately rather than requiring the user to find it themselves. This feature covers
-UX improvements to the control panel's default state and open/tab behavior.
+What this feature accomplishes and why it exists.
 
 ## UX
 
