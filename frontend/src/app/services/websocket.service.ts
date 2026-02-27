@@ -23,7 +23,7 @@ export class WebSocketService {
 
     const {Client} = await import('@stomp/stompjs');
 
-    const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/websocket?token=${token}&mapId=${mapId}`;
+    const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?token=${token}&mapId=${mapId}`;
 
     this.client = new Client({
       brokerURL: url,
@@ -32,22 +32,27 @@ export class WebSocketService {
         this.reconnectDelay = 1000;
         this.connectionStatus$.next('connected');
 
-        this.client!.subscribe(`/topic/map/${mapId}`, (frame: IMessage) => {
+        const clientId = crypto.randomUUID();
+
+        this.client!.subscribe(`/topic/map/${mapId}`, (msg: IMessage) => {
           try {
-            const msg = JSON.parse(frame.body) as WsMessage;
-            this.messages$.next(msg);
+            this.messages$.next(JSON.parse(msg.body) as WsMessage);
           } catch {
-            // ignore malformed frames
+            console.log(`failed to subscribe to map`);
           }
         });
 
-        this.client!.subscribe('/user/queue/sync', (frame: IMessage) => {
+        this.client!.subscribe(`/topic/sync/${clientId}`, (msg: IMessage) => {
           try {
-            const msg = JSON.parse(frame.body) as WsMessage;
-            this.messages$.next(msg);
+            this.messages$.next(JSON.parse(msg.body) as WsMessage);
           } catch {
-            // ignore malformed frames
+            console.log(`failed to subscribe to sync topic`);
           }
+        });
+
+        this.client!.publish({
+          destination: '/app/map/sync',
+          body: JSON.stringify({clientId})
         });
       },
       onDisconnect: () => {
@@ -83,7 +88,7 @@ export class WebSocketService {
   }
 
   private publish(destination: string, body: object): void {
-    if (!this.client) return;
+    if (!this.client?.connected) return;
     this.client.publish({destination, body: JSON.stringify(body)});
   }
 
