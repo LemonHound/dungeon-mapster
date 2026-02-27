@@ -2,7 +2,7 @@ import {Injectable, inject} from '@angular/core';
 import {Subject, BehaviorSubject} from 'rxjs';
 import {AuthService} from './auth.service';
 import {WsMessage} from '../models/presence.model';
-import type {Client, IMessage} from '@stomp/stompjs';
+import {Client, IMessage} from '@stomp/stompjs';
 
 @Injectable({providedIn: 'root'})
 export class WebSocketService {
@@ -20,8 +20,6 @@ export class WebSocketService {
     this.mapId = mapId;
     const token = this.authService.getToken();
     if (!token) return;
-
-    const {Client} = await import('@stomp/stompjs');
 
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?token=${token}&mapId=${mapId}`;
 
