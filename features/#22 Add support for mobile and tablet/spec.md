@@ -4,11 +4,12 @@ Change this line to a name (2-6 words or so) that sufficiently captures what thi
 
 ## Status
 
-Draft
+Draft | Documentation | Implementation | Done
 
 ## Purpose
 
-What this feature accomplishes and why it exists.
+Need to update the UI to be more friendly with different screen dimensions, especially those that are taller than they
+are wide. We also need to account for touch interaction (not just mouse events).
 
 ## UX
 
