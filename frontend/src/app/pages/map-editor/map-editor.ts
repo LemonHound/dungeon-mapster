@@ -73,6 +73,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public cacheStaleIsError = false;
   private cacheStaleTimeout?: ReturnType<typeof setTimeout>;
   private hadLocalChangesWhenCachedServed = false;
+  private cellCache = new Map<string, string>();
 
   public mapData: DungeonMap = {
     name: 'Untitled Map',
@@ -123,7 +124,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   canEdit(): boolean {
-    return this.userRole === 'OWNER' || this.userRole === 'DM';
+    return this.userRole === 'OWNER' || this.userRole === 'DM' || this.userRole === 'PLAYER';
   }
 
   isOwner(): boolean {
@@ -286,6 +287,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     switch (msg.type) {
       case 'FULL_STATE': {
         this.connectedUsers = msg.users;
+        this.cellCache.clear();
+        msg.cellData.forEach(c => this.cellCache.set(`${c.row}:${c.col}`, c.name));
         break;
       }
       case 'USER_JOINED': {
@@ -321,6 +324,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         break;
       }
       case 'CELL_UPDATE': {
+        if (msg.field === 'name') {
+          this.cellCache.set(`${msg.row}:${msg.col}`, msg.value);
+        }
         if (
           this.selectedCell?.row === msg.row &&
           this.selectedCell?.col === msg.col &&
@@ -615,6 +621,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.selectedCellName
     ).subscribe({
       next: () => {
+        if (this.selectedCell) {
+          this.cellCache.set(`${this.selectedCell.row}:${this.selectedCell.col}`, this.selectedCellName);
+        }
         this.wsService.sendFieldBlur();
       },
       error: (error: unknown) => console.error('Error saving cell name:', error)
@@ -806,17 +815,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     if (this.selectedCell) {
       this.wsService.sendSelection(this.selectedCell.row, this.selectedCell.col);
-
-      if (this.mapId) {
-        this.gridCellDataService.getCell(
-          this.mapId,
-          this.selectedCell.row,
-          this.selectedCell.col
-        ).subscribe({
-          next: (cellData) => this.selectedCellName = cellData.name || '',
-          error: () => this.selectedCellName = ''
-        });
-      }
+      const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
+      this.selectedCellName = this.cellCache.get(key) ?? '';
     }
 
     this.render();

@@ -20,6 +20,15 @@ required:
 Use **Spring WebSocket with STOMP** as the messaging protocol, with an **in-memory session registry** and *
 *write-through map cache** on the server, and a dedicated **Angular WebSocket service** on the client.
 
+- **Plain WebSocket endpoint (no SockJS)** — SockJS was initially included but removed. Spring's `convertAndSendToUser`
+  requires a registered user principal for user-destination routing, which SockJS provides implicitly but plain
+  WebSocket does not. Rather than add a custom principal or handshake handler, initial state sync uses a
+  client-generated UUID as a one-time topic (`/topic/session/{clientId}`). The client subscribes before requesting sync,
+  eliminating the need for server-to-client targeted messaging entirely.
+- **`SessionConnectEvent` not `SessionConnectedEvent`** — session attributes set by the handshake interceptor are only
+  available on the `SessionConnectEvent` (client→server CONNECT frame). `SessionConnectedEvent` wraps the server→client
+  CONNECTED frame and does not carry the attributes.
+
 **Key choices:**
 
 - **STOMP over WebSocket** rather than raw WebSocket — gives us topic-based pub/sub, message framing, and heartbeat

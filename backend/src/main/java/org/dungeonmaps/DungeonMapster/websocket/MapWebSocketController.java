@@ -11,7 +11,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.socket.messaging.SessionConnectedEvent;
+import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.util.Map;
@@ -37,7 +37,7 @@ public class MapWebSocketController {
     }
 
     @EventListener
-    public void onConnect(SessionConnectedEvent event) {
+    public void onConnect(SessionConnectEvent event) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
         Map<String, Object> attrs = accessor.getSessionAttributes();
         if (attrs == null) return;
@@ -57,7 +57,6 @@ public class MapWebSocketController {
         UserSession session = new UserSession(sessionId, userId, mapId, color, role, userName);
         sessionRegistry.register(session);
 
-        mapCacheService.sendFullState(session);
         mapCacheService.broadcastPresenceJoined(session);
     }
 
@@ -72,6 +71,15 @@ public class MapWebSocketController {
 
         mapCacheService.broadcastPresenceLeft(session);
         mapCacheService.evictIfEmpty(session.getMapId());
+    }
+
+    @MessageMapping("/map/sync")
+    public void handleSync(@Payload Map<String, Object> payload, StompHeaderAccessor accessor) {
+        UserSession session = getSession(accessor);
+        if (session == null) return;
+        String clientId = (String) payload.get("clientId");
+        log.debug("Sync requested by session {}, clientId {}", session.getSessionId(), clientId);
+        mapCacheService.sendFullState(session, clientId);
     }
 
     @MessageMapping("/map/selection")

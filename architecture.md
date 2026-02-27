@@ -50,3 +50,14 @@ development.
 
 - `MapMembership` entity manages role-based access per map per user
 - Hibernate `ddl-auto=update` for development; Flyway with `validate` reserved for future production use
+
+## Real-Time Collaboration
+
+- STOMP over raw WebSocket (no SockJS) via Spring WebSocket
+- JWT and mapId validated in `WebSocketHandshakeInterceptor` on upgrade
+- Session registry (`ConcurrentHashMap`) tracks connected users per map
+- Write-through map cache serves all state sync; evicted on last disconnect
+- Initial state delivered via `FULL_STATE` message: client generates a UUID, subscribes to `/topic/session/{clientId}`,
+  publishes to `/app/map/sync` with the UUID as payload; server responds on that topic
+- Ongoing broadcasts use `/topic/map/{mapId}` — no user principal or session targeting required
+- Proxy: `/ws` entry in `proxy.conf.json` with `"ws": true` handles WebSocket upgrade in local dev

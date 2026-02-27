@@ -136,7 +136,7 @@ public class MapCacheService {
         messagingTemplate.convertAndSend("/topic/map/" + session.getMapId(), message);
     }
 
-    public void sendFullState(UserSession session) {
+    public void sendFullState(UserSession session, String clientId) {
         MapCache cache = getOrLoad(session.getMapId());
 
         List<Map<String, Object>> cellData = new ArrayList<>();
@@ -165,7 +165,7 @@ public class MapCacheService {
         message.put("cellData", cellData);
         message.put("users", users);
 
-        messagingTemplate.convertAndSendToUser(session.getSessionId(), "/queue/sync", message);
+        messagingTemplate.convertAndSend("/topic/sync/" + clientId, message);
     }
 
     @Scheduled(fixedDelay = 60000)
