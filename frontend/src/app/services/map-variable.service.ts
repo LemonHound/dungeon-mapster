@@ -1,7 +1,7 @@
 import {Injectable, inject} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import {Observable} from 'rxjs';
-import {MapVariable, PicklistValue, CellVariableValue} from '../models/map-variable.model';
+import {MapVariable, PicklistValue} from '../models/map-variable.model';
 
 @Injectable({providedIn: 'root'})
 export class MapVariableService {

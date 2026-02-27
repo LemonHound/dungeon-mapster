@@ -146,7 +146,7 @@ public class MapCacheService {
         Map<String, Object> message = new HashMap<>();
         message.put("type", "VARIABLE_CREATED");
         message.put("mapId", mapId);
-        message.put("variable", variableToMap(variable));
+        message.put("variable", variableToMapWithPicklistValues(mapId, variable));
         message.put("userId", senderId);
 
         broadcastFilteredByRole(mapId, message, variable.getVisibility());
@@ -159,7 +159,7 @@ public class MapCacheService {
         Map<String, Object> message = new HashMap<>();
         message.put("type", "VARIABLE_UPDATED");
         message.put("mapId", mapId);
-        message.put("variable", variableToMap(variable));
+        message.put("variable", variableToMapWithPicklistValues(mapId, variable));
         message.put("userId", senderId);
 
         broadcastFilteredByRole(mapId, message, variable.getVisibility());
@@ -408,6 +408,22 @@ public class MapCacheService {
         map.put("visibility", v.getVisibility());
         map.put("showColorOnCells", v.isShowColorOnCells());
         map.put("sortOrder", v.getSortOrder());
+        return map;
+    }
+
+    private Map<String, Object> variableToMapWithPicklistValues(Long mapId, MapVariable v) {
+        Map<String, Object> map = variableToMap(v);
+        if ("PICKLIST".equals(v.getDataType())) {
+            MapCache cache = caches.get(mapId);
+            List<PicklistValue> pvs = cache != null
+                    ? cache.getPicklistValuesForVariable(v.getId())
+                    : List.of();
+            List<Map<String, Object>> pvList = new ArrayList<>();
+            for (PicklistValue pv : pvs) {
+                pvList.add(picklistValueToMap(pv));
+            }
+            map.put("picklistValues", pvList);
+        }
         return map;
     }
 

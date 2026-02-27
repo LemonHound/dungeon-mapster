@@ -121,12 +121,13 @@ public class MapVariableController {
         }
         String label = body.get("label");
         if (label == null || label.isBlank()) return ResponseEntity.badRequest().build();
-        return variableService.updatePicklistValue(picklistValueId, label)
-                .map(updated -> {
-                    mapCacheService.broadcastPicklistValueUpdated(mapId, variableId, updated, userId);
-                    return ResponseEntity.ok(updated);
-                })
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            PicklistValue created = variableService.addPicklistValue(variableId, label);
+            mapCacheService.broadcastPicklistValueAdded(mapId, variableId, created, userId);
+            return ResponseEntity.ok(created);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).build();
+        }
     }
 
     @DeleteMapping("/{variableId}/picklist-values/{picklistValueId}")
