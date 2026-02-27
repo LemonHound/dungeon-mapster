@@ -80,6 +80,9 @@ public class MapVariableService {
     @Transactional
     public PicklistValue addPicklistValue(String variableId, String label) {
         List<PicklistValue> existing = picklistValueRepository.findByVariableIdOrderBySortOrder(variableId);
+        boolean duplicate = existing.stream()
+                .anyMatch(pv -> pv.getLabel().equalsIgnoreCase(label.trim()));
+        if (duplicate) throw new IllegalArgumentException("Duplicate picklist label");
         String color = assignColor(existing.size());
 
         PicklistValue pv = new PicklistValue();

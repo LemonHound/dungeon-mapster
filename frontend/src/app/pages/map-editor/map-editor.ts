@@ -409,6 +409,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
             : [...pvList, msg.picklistValue];
           return {...v, picklistValues: updated.sort((a, b) => a.sortOrder - b.sortOrder)};
         });
+        if (this.activeTintVariableId === msg.variableId) this.render();
         break;
       }
       case 'PICKLIST_VALUE_DELETED': {
@@ -755,8 +756,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       height: this.mapImage.height * this.scale
     };
 
-    this.drawCellTints(imageBounds);
-
     this.gridStrategy.draw(
       this.gridCtx,
       this.gridCanvas.width,
@@ -768,6 +767,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.gridLocked,
       imageBounds
     );
+
+    this.drawCellTints(imageBounds);
 
     if (this.gridStrategy.drawHighlight) {
       if (this.selectedCell) {
@@ -963,8 +964,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       });
     } else {
       this.mapVariableService.createVariable(this.mapId, this.variableForm).subscribe({
-        next: () => {
-          this.variableForm = null;
+        next: (created) => {
+          if (created.dataType === 'PICKLIST') {
+            this.editingVariableId = created.id;
+          } else {
+            this.variableForm = null;
+          }
         },
         error: (e) => console.error('Error creating variable:', e)
       });
@@ -986,11 +991,24 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   addPicklistValue(): void {
     if (!this.mapId || !this.editingVariableId || !this.newPicklistLabel.trim()) return;
-    this.mapVariableService.addPicklistValue(this.mapId, this.editingVariableId, this.newPicklistLabel.trim()).subscribe({
+    const label = this.newPicklistLabel.trim();
+    const existing = this.editingVariable?.picklistValues ?? [];
+    if (existing.some(pv => pv.label.toLowerCase() === label.toLowerCase())) {
+      alert(`"${label}" already exists in this picklist.`);
+      return;
+    }
+
+    this.mapVariableService.addPicklistValue(this.mapId, this.editingVariableId, label).subscribe({
       next: () => {
         this.newPicklistLabel = '';
       },
-      error: (e) => console.error('Error adding picklist value:', e)
+      error: (e) => {
+        if (e.status === 409) {
+          alert(`"${label}" already exists in this picklist.`);
+        } else {
+          console.error('Error adding picklist value:', e)
+        }
+      }
     });
   }
 
