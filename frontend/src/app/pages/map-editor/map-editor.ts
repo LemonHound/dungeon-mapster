@@ -13,6 +13,9 @@ import {WebSocketService} from '../../services/websocket.service';
 import {HttpClient} from '@angular/common/http';
 import {UserPresence, SelectionState, FieldFocusState, WsMessage} from '../../models/presence.model';
 import {Subscription} from 'rxjs';
+import {MapVariableService} from '../../services/map-variable.service';
+import {CellVariableValueService} from '../../services/cell-variable-value.service';
+import {MapVariable, CellVariableValue} from '../../models/map-variable.model';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -32,6 +35,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private http = inject(HttpClient);
   private cacheService = inject(MapImageCacheService);
   private wsService = inject(WebSocketService);
+  private mapVariableService = inject(MapVariableService);
+  private cellVariableValueService = inject(CellVariableValueService);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -74,6 +79,15 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private cacheStaleTimeout?: ReturnType<typeof setTimeout>;
   private hadLocalChangesWhenCachedServed = false;
   private cellCache = new Map<string, string>();
+
+  public variables: MapVariable[] = [];
+  public cellVariableValues = new Map<string, CellVariableValue[]>();
+  public manageVariablesOpen = false;
+  public variableForm: Partial<MapVariable> | null = null;
+  public editingVariableId: string | null = null;
+  public newPicklistLabel = '';
+  public activeTintVariableId: string | null = null;
+  private variableSaveTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   public mapData: DungeonMap = {
     name: 'Untitled Map',
@@ -121,6 +135,17 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.resizeCanvas();
     this.setupMouseEvents();
     window.addEventListener('resize', () => this.resizeCanvas());
+  }
+
+  ngOnDestroy(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveMap();
+    }
+    this.wsSub?.unsubscribe();
+    this.statusSub?.unsubscribe();
+    this.wsService.disconnect();
+    this.variableSaveTimeouts.forEach(t => clearTimeout(t));
   }
 
   canEdit(): boolean {
@@ -220,15 +245,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     if (this.cacheStaleTimeout) clearTimeout(this.cacheStaleTimeout);
   }
 
-  ngOnDestroy(): void {
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-      this.saveMap();
-    }
-    this.wsSub?.unsubscribe();
-    this.statusSub?.unsubscribe();
-    this.wsService.disconnect();
-  }
 
   private loadMap(id: number): void {
     this.mapService.getMapById(id).subscribe({
@@ -288,7 +304,14 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       case 'FULL_STATE': {
         this.connectedUsers = msg.users;
         this.cellCache.clear();
-        msg.cellData.forEach(c => this.cellCache.set(`${c.row}:${c.col}`, c.name));
+        this.cellVariableValues.clear();
+        msg.cellData.forEach(c => {
+          this.cellCache.set(`${c.row}:${c.col}`, c.name);
+          if (c.variableValues?.length) {
+            this.cellVariableValues.set(`${c.row}:${c.col}`, c.variableValues);
+          }
+        });
+        this.variables = msg.variables ?? [];
         break;
       }
       case 'USER_JOINED': {
@@ -338,6 +361,67 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       }
       case 'MAP_UPDATE': {
         this.applyRemoteMapField(msg.field, msg.value);
+        break;
+      }
+      case 'CELL_VARIABLE_UPDATE': {
+        const key = `${msg.row}:${msg.col}`;
+        const existing = [...(this.cellVariableValues.get(key) ?? [])];
+        if (msg.cleared) {
+          this.cellVariableValues.set(key, existing.filter(v => v.variableId !== msg.variableId));
+        } else {
+          const idx = existing.findIndex(v => v.variableId === msg.variableId);
+          if (idx >= 0) existing[idx] = {variableId: msg.variableId, value: msg.value};
+          else existing.push({variableId: msg.variableId, value: msg.value});
+          this.cellVariableValues.set(key, existing);
+        }
+        if (this.activeTintVariableId === msg.variableId) this.render();
+        break;
+      }
+      case 'VARIABLE_CREATED': {
+        if (!this.variables.find(v => v.id === msg.variable.id)) {
+          this.variables = [...this.variables, msg.variable].sort((a, b) => a.sortOrder - b.sortOrder);
+        }
+        break;
+      }
+      case 'VARIABLE_UPDATED': {
+        this.variables = this.variables.map(v => v.id === msg.variable.id ? msg.variable : v);
+        break;
+      }
+      case 'VARIABLE_DELETED': {
+        this.variables = this.variables.filter(v => v.id !== msg.variableId);
+        if (this.activeTintVariableId === msg.variableId) {
+          this.activeTintVariableId = null;
+          this.render();
+        }
+        for (const [key, vals] of this.cellVariableValues) {
+          this.cellVariableValues.set(key, vals.filter(v => v.variableId !== msg.variableId));
+        }
+        break;
+      }
+      case 'PICKLIST_VALUE_ADDED':
+      case 'PICKLIST_VALUE_UPDATED': {
+        this.variables = this.variables.map(v => {
+          if (v.id !== msg.variableId) return v;
+          const pvList = v.picklistValues ?? [];
+          const idx = pvList.findIndex(p => p.id === msg.picklistValue.id);
+          const updated = idx >= 0
+            ? pvList.map(p => p.id === msg.picklistValue.id ? msg.picklistValue : p)
+            : [...pvList, msg.picklistValue];
+          return {...v, picklistValues: updated.sort((a, b) => a.sortOrder - b.sortOrder)};
+        });
+        break;
+      }
+      case 'PICKLIST_VALUE_DELETED': {
+        this.variables = this.variables.map(v => {
+          if (v.id !== msg.variableId) return v;
+          return {...v, picklistValues: (v.picklistValues ?? []).filter(p => p.id !== msg.picklistValueId)};
+        });
+        for (const [key, vals] of this.cellVariableValues) {
+          this.cellVariableValues.set(key,
+            vals.filter(v => !(v.variableId === msg.variableId && v.value === msg.picklistValueId))
+          );
+        }
+        if (this.activeTintVariableId === msg.variableId) this.render();
         break;
       }
     }
@@ -671,6 +755,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       height: this.mapImage.height * this.scale
     };
 
+    this.drawCellTints(imageBounds);
+
     this.gridStrategy.draw(
       this.gridCtx,
       this.gridCanvas.width,
@@ -817,8 +903,233 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       this.wsService.sendSelection(this.selectedCell.row, this.selectedCell.col);
       const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
       this.selectedCellName = this.cellCache.get(key) ?? '';
+
+      if (this.mapId) {
+        this.gridCellDataService.ensureCell(this.mapId, this.selectedCell.row, this.selectedCell.col).subscribe({
+          next: (cell) => {
+            if (cell.name && !this.cellCache.has(key)) {
+              this.cellCache.set(key, cell.name);
+              if (this.selectedCell?.row === cell.rowIndex && this.selectedCell?.col === cell.colIndex) {
+                this.selectedCellName = cell.name;
+              }
+            }
+          }
+        });
+      }
     }
 
     this.render();
+  }
+
+  isDmOrOwner(): boolean {
+    return this.userRole === 'OWNER' || this.userRole === 'DM';
+  }
+
+  get editingVariable(): MapVariable | null {
+    return this.variables.find(v => v.id === this.editingVariableId) ?? null;
+  }
+
+  openManageVariables(): void {
+    this.manageVariablesOpen = true;
+    this.variableForm = null;
+    this.editingVariableId = null;
+  }
+
+  closeManageVariables(): void {
+    this.manageVariablesOpen = false;
+    this.variableForm = null;
+    this.editingVariableId = null;
+  }
+
+  startCreateVariable(): void {
+    this.variableForm = {dataType: 'TEXT', visibility: 'PLAYER_EDIT', showColorOnCells: false};
+    this.editingVariableId = null;
+  }
+
+  startEditVariable(variable: MapVariable): void {
+    this.variableForm = {...variable};
+    this.editingVariableId = variable.id;
+  }
+
+  saveVariable(): void {
+    if (!this.mapId || !this.variableForm) return;
+    if (this.editingVariableId) {
+      this.mapVariableService.updateVariable(this.mapId, this.editingVariableId, this.variableForm).subscribe({
+        next: () => {
+          this.variableForm = null;
+          this.editingVariableId = null;
+        },
+        error: (e) => console.error('Error updating variable:', e)
+      });
+    } else {
+      this.mapVariableService.createVariable(this.mapId, this.variableForm).subscribe({
+        next: () => {
+          this.variableForm = null;
+        },
+        error: (e) => console.error('Error creating variable:', e)
+      });
+    }
+  }
+
+  cancelVariableForm(): void {
+    this.variableForm = null;
+    this.editingVariableId = null;
+  }
+
+  confirmDeleteVariable(variable: MapVariable): void {
+    if (!this.mapId) return;
+    if (!confirm(`Delete variable "${variable.name}"? All cell values will be lost.`)) return;
+    this.mapVariableService.deleteVariable(this.mapId, variable.id).subscribe({
+      error: (e) => console.error('Error deleting variable:', e)
+    });
+  }
+
+  addPicklistValue(): void {
+    if (!this.mapId || !this.editingVariableId || !this.newPicklistLabel.trim()) return;
+    this.mapVariableService.addPicklistValue(this.mapId, this.editingVariableId, this.newPicklistLabel.trim()).subscribe({
+      next: () => {
+        this.newPicklistLabel = '';
+      },
+      error: (e) => console.error('Error adding picklist value:', e)
+    });
+  }
+
+  deletePicklistValueFromForm(pvId: string): void {
+    if (!this.editingVariable) return;
+    this.deletePicklistValue(this.editingVariable, pvId);
+  }
+
+  deletePicklistValue(variable: MapVariable, pvId: string): void {
+    if (!this.mapId) return;
+    this.mapVariableService.deletePicklistValue(this.mapId, variable.id, pvId).subscribe({
+      error: (e) => console.error('Error deleting picklist value:', e)
+    });
+  }
+
+  getCellVariableValue(variableId: string): string {
+    if (!this.selectedCell) return '';
+    const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
+    return (this.cellVariableValues.get(key) ?? []).find(v => v.variableId === variableId)?.value ?? '';
+  }
+
+  onCellVariableChange(variable: MapVariable, value: string): void {
+    if (!this.selectedCell || !this.mapId) return;
+    const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
+    const existing = [...(this.cellVariableValues.get(key) ?? [])];
+
+    if (value === '') {
+      this.cellVariableValues.set(key, existing.filter(v => v.variableId !== variable.id));
+    } else {
+      const idx = existing.findIndex(v => v.variableId === variable.id);
+      if (idx >= 0) existing[idx] = {variableId: variable.id, value};
+      else existing.push({variableId: variable.id, value});
+      this.cellVariableValues.set(key, existing);
+    }
+
+    if (this.activeTintVariableId === variable.id) this.render();
+
+    const timeoutKey = `${this.selectedCell.row}:${this.selectedCell.col}:${variable.id}`;
+    if (this.variableSaveTimeouts.has(timeoutKey)) clearTimeout(this.variableSaveTimeouts.get(timeoutKey));
+
+    const cell = this.selectedCell;
+    this.variableSaveTimeouts.set(timeoutKey, setTimeout(() => {
+      if (!this.mapId) return;
+      if (value === '') {
+        this.cellVariableValueService.clearValue(this.mapId, cell.row, cell.col, variable.id).subscribe({
+          error: (e) => console.error('Error clearing variable value:', e)
+        });
+      } else {
+        this.cellVariableValueService.setValue(this.mapId, cell.row, cell.col, variable.id, value).subscribe({
+          error: (e) => console.error('Error saving variable value:', e)
+        });
+      }
+    }, 300));
+  }
+
+  canEditVariable(variable: MapVariable): boolean {
+    if (this.isDmOrOwner()) return true;
+    return variable.visibility === 'PLAYER_EDIT';
+  }
+
+  getPicklistLabel(variable: MapVariable, valueId: string): string {
+    return variable.picklistValues?.find(p => p.id === valueId)?.label ?? '';
+  }
+
+  getPicklistColor(variable: MapVariable, valueId: string): string | null {
+    if (!valueId) return null;
+    return variable.picklistValues?.find(p => p.id === valueId)?.color ?? null;
+  }
+
+  tintColorableVariables(): MapVariable[] {
+    return this.variables.filter(v => v.dataType === 'PICKLIST' && v.showColorOnCells);
+  }
+
+  setActiveTint(variableId: string | null): void {
+    this.activeTintVariableId = variableId;
+    this.render();
+  }
+
+  private drawCellTints(imageBounds: { x: number; y: number; width: number; height: number }): void {
+    if (!this.activeTintVariableId) return;
+    const variable = this.variables.find(v => v.id === this.activeTintVariableId);
+    if (!variable?.picklistValues?.length) return;
+
+    const colorMap = new Map(variable.picklistValues.map(p => [p.id, p.color]));
+
+    for (const [key, vals] of this.cellVariableValues) {
+      const val = vals.find(v => v.variableId === this.activeTintVariableId);
+      if (!val?.value) continue;
+      const color = colorMap.get(val.value);
+      if (!color) continue;
+
+      const [rowStr, colStr] = key.split(':');
+      const row = parseInt(rowStr);
+      const col = parseInt(colStr);
+
+      this.gridCtx.save();
+      this.gridCtx.globalAlpha = 0.35;
+      this.gridCtx.fillStyle = color;
+
+      if (this.gridType === 'square') {
+        const effectiveSize = this.gridSize * this.gridScale;
+        const x = this.gridOffsetX + col * effectiveSize;
+        const y = this.gridOffsetY + row * effectiveSize;
+        if (x + effectiveSize < imageBounds.x || x > imageBounds.x + imageBounds.width
+          || y + effectiveSize < imageBounds.y || y > imageBounds.y + imageBounds.height) {
+          this.gridCtx.restore();
+          continue;
+        }
+        this.gridCtx.fillRect(x, y, effectiveSize, effectiveSize);
+      } else {
+        const size = this.gridSize * this.gridScale;
+        let centerX: number, centerY: number, rotation: number;
+        if (this.hexOrientation === 'flat') {
+          const width = size * 2;
+          const height = Math.sqrt(3) * size;
+          const yOffset = col % 2 === 0 ? 0 : height / 2;
+          centerX = this.gridOffsetX + col * (width * 0.75) + size;
+          centerY = this.gridOffsetY + row * height + height / 2 + yOffset;
+          rotation = 0;
+        } else {
+          const width = Math.sqrt(3) * size;
+          const height = size * 2;
+          const xOffset = row % 2 === 0 ? 0 : width / 2;
+          centerX = this.gridOffsetX + col * width + width / 2 + xOffset;
+          centerY = this.gridOffsetY + row * (height * 0.75) + size;
+          rotation = 30;
+        }
+        this.gridCtx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI / 3) * i + (rotation * Math.PI / 180);
+          const px = centerX + size * Math.cos(angle);
+          const py = centerY + size * Math.sin(angle);
+          if (i === 0) this.gridCtx.moveTo(px, py);
+          else this.gridCtx.lineTo(px, py);
+        }
+        this.gridCtx.closePath();
+        this.gridCtx.fill();
+      }
+      this.gridCtx.restore();
+    }
   }
 }

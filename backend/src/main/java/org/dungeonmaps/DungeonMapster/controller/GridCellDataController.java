@@ -43,4 +43,16 @@ public class GridCellDataController {
         mapCacheService.broadcastCellUpdate(saved, userId);
         return ResponseEntity.ok(saved);
     }
+
+    @PostMapping("/{mapId}/{row}/{col}/ensure")
+    public ResponseEntity<GridCellData> ensureCell(
+            @PathVariable Long mapId,
+            @PathVariable Integer row,
+            @PathVariable Integer col,
+            Authentication authentication
+    ) {
+        GridCellData cell = service.ensureExists(mapId, row, col);
+        mapCacheService.updateCell(cell);
+        return ResponseEntity.ok(cell);
+    }
 }

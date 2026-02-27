@@ -8,6 +8,7 @@ import {HexGridStrategy, HexOrientation} from '../../models/hex-grid.strategy';
 import {MapMembership} from '../../services/map';
 import {AuthService, User} from '../../services/auth.service';
 import {UserPresence, SelectionState, FieldFocusState} from '../../models/presence.model';
+import {MapVariable, CellVariableValue} from '../../models/map-variable.model';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -60,6 +61,14 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   public cacheStaleMessage: string | null = null;
   public cacheStaleIsError = false;
 
+  public variables: MapVariable[] = [];
+  public cellVariableValues = new Map<string, CellVariableValue[]>();
+  public manageVariablesOpen = false;
+  public variableForm: Partial<MapVariable> | null = null;
+  public editingVariableId: string | null = null;
+  public newPicklistLabel = '';
+  public activeTintVariableId: string | null = null;
+
   public mapData = {name: 'Demo Map', joinCode: null as string | null, imageUrl: null as string | null};
   public userRole: 'OWNER' | 'DM' | 'PLAYER' | null = 'DM';
   public members: MapMembership[] = [];
@@ -105,13 +114,17 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  /* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars */
+  /* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars, @typescript-eslint/class-literal-property-style */
   canEdit(): boolean {
     return true;
   }
 
   isOwner(): boolean {
     return false;
+  }
+
+  isDmOrOwner(): boolean {
+    return true;
   }
 
   getJoinUrl(): string {
@@ -146,6 +159,68 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   dismissCacheStale(): void {
   }
 
+  loginAndSave(): void {
+  }
+
+  openManageVariables(): void {
+  }
+
+  closeManageVariables(): void {
+  }
+
+  startCreateVariable(): void {
+  }
+
+  startEditVariable(_variable: MapVariable): void {
+  }
+
+  saveVariable(): void {
+  }
+
+  cancelVariableForm(): void {
+  }
+
+  confirmDeleteVariable(_variable: MapVariable): void {
+  }
+
+  addPicklistValue(): void {
+  }
+
+  deletePicklistValueFromForm(_pvId: string): void {
+  }
+
+  deletePicklistValue(_variable: MapVariable, _pvId: string): void {
+  }
+
+  setActiveTint(_variableId: string | null): void {
+  }
+
+  get editingVariable(): MapVariable | null {
+    return null;
+  }
+
+  getCellVariableValue(_variableId: string): string {
+    return '';
+  }
+
+  onCellVariableChange(_variable: MapVariable, _value: string): void {
+  }
+
+  canEditVariable(_variable: MapVariable): boolean {
+    return false;
+  }
+
+  getPicklistLabel(_variable: MapVariable, _valueId: string): string {
+    return '';
+  }
+
+  getPicklistColor(_variable: MapVariable, _valueId: string): string | null {
+    return null;
+  }
+
+  tintColorableVariables(): MapVariable[] {
+    return [];
+  }
   /* eslint-enable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars */
 
   onFileSelected(event: Event): void {
@@ -165,6 +240,12 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   onGridChange(): void {
     this.render();
+  }
+
+  onCellNameChange(): void {
+    if (this.selectedCell) {
+      this.cellData.set(`${this.selectedCell.row}:${this.selectedCell.col}`, this.selectedCellName);
+    }
   }
 
   toggleGridLock(): void {
@@ -200,13 +281,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  onCellNameChange(): void {
-    if (this.selectedCell) {
-      this.cellData.set(`${this.selectedCell.row}:${this.selectedCell.col}`, this.selectedCellName);
-    }
-  }
-
-  loginAndSave(): void {
+  loginAndSaveRedirect(): void {
     const persist = (imageBase64: string | null, imageMimeType: string | null) => {
       localStorage.setItem('demoState', JSON.stringify({
         mapName: this.mapData.name,
@@ -341,6 +416,10 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
           e.clientY - rect.top,
           this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale
         );
+        if (this.selectedCell) {
+          const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
+          this.selectedCellName = this.cellData.get(key) ?? '';
+        }
         this.render();
       }
       isDragging = false;
