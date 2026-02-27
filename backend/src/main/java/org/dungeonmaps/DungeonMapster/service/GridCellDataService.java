@@ -22,6 +22,17 @@ public class GridCellDataService {
         return repository.save(cellData);
     }
 
+    public GridCellData ensureExists(Long mapId, Integer row, Integer col) {
+        return repository.findByMapIdAndRowIndexAndColIndex(mapId, row, col)
+                .orElseGet(() -> {
+                    GridCellData cellData = new GridCellData();
+                    cellData.setMapId(mapId);
+                    cellData.setRowIndex(row);
+                    cellData.setColIndex(col);
+                    return repository.save(cellData);
+                });
+    }
+
     public GridCellData getCell(Long mapId, Integer row, Integer col) {
         return repository.findByMapIdAndRowIndexAndColIndex(mapId, row, col)
                 .orElse(null);

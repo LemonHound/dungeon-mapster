@@ -1,3 +1,5 @@
+import {MapVariable, PicklistValue, CellVariableValue} from './map-variable.model';
+
 export interface UserPresence {
   userId: number;
   userName: string;
@@ -43,8 +45,26 @@ export type WsMessage =
 }
   | { type: 'MAP_UPDATE'; mapId: number; field: string; fieldFlags: FieldFlags; value: unknown; userId: number }
   | {
+  type: 'CELL_VARIABLE_UPDATE';
+  mapId: number;
+  row: number;
+  col: number;
+  variableId: string;
+  fieldFlags: FieldFlags;
+  value: string;
+  cleared: boolean;
+  userId: number
+}
+  | { type: 'VARIABLE_CREATED'; mapId: number; variable: MapVariable; userId: number }
+  | { type: 'VARIABLE_UPDATED'; mapId: number; variable: MapVariable; userId: number }
+  | { type: 'VARIABLE_DELETED'; mapId: number; variableId: string; userId: number }
+  | { type: 'PICKLIST_VALUE_ADDED'; mapId: number; variableId: string; picklistValue: PicklistValue; userId: number }
+  | { type: 'PICKLIST_VALUE_UPDATED'; mapId: number; variableId: string; picklistValue: PicklistValue; userId: number }
+  | { type: 'PICKLIST_VALUE_DELETED'; mapId: number; variableId: string; picklistValueId: string; userId: number }
+  | {
   type: 'FULL_STATE';
   mapData: unknown;
-  cellData: { row: number; col: number; name: string }[];
-  users: UserPresence[]
+  cellData: { row: number; col: number; name: string; variableValues: CellVariableValue[] }[];
+  variables: MapVariable[];
+  users: UserPresence[];
 };

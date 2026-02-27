@@ -172,9 +172,126 @@
               </div>
             </div>
           }
+          <!-- Replace the @if (activeTab === 'variables') block in map-editor.html with this -->
+
           @if (activeTab === 'variables') {
             <div class="control-section">
               <h4>Cell Variables</h4>
+
+              @if (isDmOrOwner()) {
+                @if (!manageVariablesOpen) {
+                  <button class="manage-variables-btn" (click)="openManageVariables()">Manage Variables</button>
+                } @else {
+                  <div class="manage-variables-panel">
+                    <div class="manage-variables-header">
+                      <span class="manage-variables-title">Manage Variables</span>
+                      <button class="close-btn" (click)="closeManageVariables()">&#x2715;</button>
+                    </div>
+
+                    @if (variableForm) {
+                      <div class="variable-form">
+                        <label>
+                          Name
+                          <input type="text" [(ngModel)]="variableForm.name" class="map-name-input"
+                                 placeholder="Variable name"/>
+                        </label>
+                        <label>
+                          Type
+                          <select [(ngModel)]="variableForm.dataType" class="map-name-input"
+                                  [disabled]="!!editingVariableId">
+                            <option value="TEXT">Text</option>
+                            <option value="TEXTAREA">Text Area</option>
+                            <option value="DATE">Date</option>
+                            <option value="NUMERIC">Numeric</option>
+                            <option value="PICKLIST">Picklist</option>
+                          </select>
+                        </label>
+                        @if (variableForm.dataType === 'NUMERIC') {
+                          <label>
+                            Format
+                            <select [(ngModel)]="variableForm.displayFormat" class="map-name-input">
+                              <option value="INTEGER">Integer</option>
+                              <option value="FLOAT">Float</option>
+                              <option value="PERCENTAGE">Percentage</option>
+                            </select>
+                          </label>
+                        }
+                        <label>
+                          Visibility
+                          <select [(ngModel)]="variableForm.visibility" class="map-name-input">
+                            <option value="PLAYER_EDIT">Players can edit</option>
+                            <option value="PLAYER_READ">Players read only</option>
+                            <option value="DM_ONLY">DM only</option>
+                          </select>
+                        </label>
+                        @if (variableForm.dataType === 'PICKLIST') {
+                          <label class="checkbox-label">
+                            <input type="checkbox" [(ngModel)]="variableForm.showColorOnCells"/>
+                            Show color on cells
+                          </label>
+                        }
+                        <div class="form-actions">
+                          <button class="save-btn" (click)="saveVariable()">Save</button>
+                          <button class="cancel-btn" (click)="cancelVariableForm()">Cancel</button>
+                        </div>
+
+                        @if (editingVariableId && variableForm.dataType === 'PICKLIST' && editingVariable) {
+                          <div class="picklist-section">
+                            <h5>Picklist Values</h5>
+                            @for (pv of editingVariable.picklistValues ?? []; track pv.id) {
+                              <div class="picklist-item">
+                                <span class="picklist-swatch" [style.background]="pv.color"></span>
+                                <span class="picklist-label">{{ pv.label }}</span>
+                                <button class="delete-small-btn" (click)="deletePicklistValueFromForm(pv.id)">&#x2715;
+                                </button>
+                              </div>
+                            }
+                            <div class="picklist-add">
+                              <input type="text" [(ngModel)]="newPicklistLabel" class="map-name-input"
+                                     placeholder="New value label"
+                                     (keyup.enter)="addPicklistValue()"/>
+                              <button class="save-btn" (click)="addPicklistValue()">Add</button>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="variable-list">
+                        @if (variables.length === 0) {
+                          <p class="cell-info">No variables defined yet.</p>
+                        }
+                        @for (variable of variables; track variable.id) {
+                          <div class="variable-list-item">
+                            <span class="variable-list-name">{{ variable.name }}</span>
+                            <span class="variable-list-type">{{ variable.dataType }}</span>
+                            <div class="variable-list-actions">
+                              <button class="edit-btn" (click)="startEditVariable(variable)">Edit</button>
+                              <button class="delete-btn" (click)="confirmDeleteVariable(variable)">Delete</button>
+                            </div>
+                          </div>
+                        }
+                        <button class="manage-variables-btn" style="margin-top: 10px" (click)="startCreateVariable()">+
+                          Create Variable
+                        </button>
+                      </div>
+                    }
+                  </div>
+                }
+              }
+
+              @if (tintColorableVariables().length > 0) {
+                <div class="tint-selector">
+                  <label>Cell tint:</label>
+                  <select class="map-name-input" [ngModel]="activeTintVariableId"
+                          (ngModelChange)="setActiveTint($event)">
+                    <option [ngValue]="null">None</option>
+                    @for (v of tintColorableVariables(); track v.id) {
+                      <option [value]="v.id">{{ v.name }}</option>
+                    }
+                  </select>
+                </div>
+              }
+
               @if (selectedCell) {
                 <p class="cell-info">Selected: Row {{ selectedCell.row }}, Col {{ selectedCell.col }}</p>
                 <label>
@@ -188,8 +305,82 @@
                     [style.border-color]="remoteFieldFocus ? remoteFieldFocus.color : null"
                     placeholder="Enter cell name"/>
                 </label>
+
+                @if (variables.length > 0) {
+                  <div class="cell-variables">
+                    @for (variable of variables; track variable.id) {
+                      <div class="cell-variable-field">
+                        <label class="cell-variable-label">{{ variable.name }}</label>
+                        @if (variable.dataType === 'TEXT') {
+                          <input type="text"
+                                 class="map-name-input"
+                                 [value]="getCellVariableValue(variable.id)"
+                                 (input)="onCellVariableChange(variable, $any($event.target).value)"
+                                 [disabled]="!canEditVariable(variable)"
+                                 [class.readonly-field]="!canEditVariable(variable)"
+                                 placeholder=""/>
+                        }
+                        @if (variable.dataType === 'TEXTAREA') {
+                          <textarea class="variable-textarea"
+                                    [value]="getCellVariableValue(variable.id)"
+                                    (input)="onCellVariableChange(variable, $any($event.target).value)"
+                                    [disabled]="!canEditVariable(variable)"
+                                    [class.readonly-field]="!canEditVariable(variable)"
+                                    rows="3"></textarea>
+                        }
+                        @if (variable.dataType === 'DATE') {
+                          <input type="date"
+                                 class="map-name-input"
+                                 [value]="getCellVariableValue(variable.id)"
+                                 (input)="onCellVariableChange(variable, $any($event.target).value)"
+                                 [disabled]="!canEditVariable(variable)"
+                                 [class.readonly-field]="!canEditVariable(variable)"/>
+                        }
+                        @if (variable.dataType === 'NUMERIC') {
+                          <div class="numeric-field">
+                            <input type="number"
+                                   class="map-name-input"
+                                   [value]="getCellVariableValue(variable.id)"
+                                   (input)="onCellVariableChange(variable, $any($event.target).value)"
+                                   [disabled]="!canEditVariable(variable)"
+                                   [class.readonly-field]="!canEditVariable(variable)"
+                                   [step]="variable.displayFormat === 'FLOAT' ? '0.01' : '1'"/>
+                            @if (variable.displayFormat === 'PERCENTAGE') {
+                              <span class="numeric-suffix">%</span>
+                            }
+                          </div>
+                        }
+                        @if (variable.dataType === 'PICKLIST') {
+                          @if (canEditVariable(variable)) {
+                            <select class="map-name-input"
+                                    [ngModel]="getCellVariableValue(variable.id)"
+                                    (ngModelChange)="onCellVariableChange(variable, $event)">
+                              <option value="">— none —</option>
+                              @for (pv of variable.picklistValues ?? []; track pv.id) {
+                                <option [value]="pv.id">{{ pv.label }}</option>
+                              }
+                            </select>
+                          } @else {
+                            <div class="picklist-readonly">
+                              @if (getCellVariableValue(variable.id)) {
+                                <span class="picklist-swatch"
+                                      [style.background]="getPicklistColor(variable, getCellVariableValue(variable.id))"></span>
+                                {{ getPicklistLabel(variable, getCellVariableValue(variable.id)) }}
+                              } @else {
+                                <span class="cell-info">—</span>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                }
               } @else {
-                <p class="cell-info">Click a grid cell to edit its variables</p>
+                <p class="cell-info">Click a grid cell to edit its variables.</p>
+                @if (variables.length === 0 && !isDmOrOwner()) {
+                  <p class="cell-info">No variables have been defined for this map.</p>
+                }
               }
             </div>
           }
