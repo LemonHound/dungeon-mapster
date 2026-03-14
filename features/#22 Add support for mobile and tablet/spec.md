@@ -27,7 +27,9 @@ Touch gestures map directly to existing mouse interactions. No UI layout changes
 - `touchmove`: pan the map using the delta from the previous touch position, using the same offset logic as
   `mousemove`. If cumulative movement exceeds a small threshold (~5px), the gesture is no longer a tap candidate.
 - `touchend`: if no significant movement occurred and duration < 200ms, treat as a tap and call `handleCellClick()`
-  with the touch position. Otherwise, if grid is unlocked, trigger auto-save (same as `mouseup` path).
+  with the touch position. `handleCellClick()` takes a `MouseEvent`, so pass a synthetic `MouseEvent` constructed
+  from the touch's `clientX/clientY` (e.g., `new MouseEvent('click', { clientX, clientY })`). Otherwise, if grid
+  is unlocked, trigger auto-save (same as `mouseup` path).
 
 **Two-finger touch (pinch/spread):**
 
@@ -54,15 +56,22 @@ Touch gestures map directly to existing mouse interactions. No UI layout changes
 - All touch events are registered on `this.gridCanvas`, same as mouse events
 - Call `e.preventDefault()` on `touchstart` and `touchmove` to suppress browser scroll, zoom, and tap-highlight
   behaviors
-- Add `touch-action: none` to `.grid-canvas` in `map-editor.css` (and `demo-map-editor.css` if it has its own)
+- Add `touch-action: none` to `.grid-canvas` in `map-editor.css`. `demo-map-editor.ts` uses the same
+  `map-editor.css` via its `styleUrl`, so no separate CSS change is needed there.
   to prevent browser default gesture handling before JS fires
-- The zoom-centered-on-point math for pinch mirrors the `wheel` handler exactly:
+- The zoom-centered-on-point math for pinch mirrors the `wheel` handler exactly. The `wheel` handler branches
+  on `this.gridLocked` and updates different variables in each path — `setupTouchEvents()` must replicate this
+  same branching:
+  - Grid locked: update `scale`, `offsetX/Y`, and mirror to `gridOffsetX/Y` + `gridOffsetRatioX/Y`
+  - Grid unlocked: update `gridScale` and `gridOffsetX/Y` only
+
   ```
   newScale = clamp(oldScale * distanceRatio, 0.1, 5)
   scaleChange = newScale / oldScale
   offsetX = midX - (midX - offsetX) * scaleChange
   offsetY = midY - (midY - offsetY) * scaleChange
   ```
+  (`offsetX/Y` and `oldScale` above refer to whichever pair is active for the current lock state.)
   Pan delta is applied first, then zoom, within the same `touchmove` handler to keep both in sync.
 
 ## Edge Cases
