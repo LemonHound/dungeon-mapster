@@ -85,7 +85,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   private localImageObjectUrl: string | null = null;
 
   ngOnInit(): void {
-    // @ts-expect-error
+    // @ts-expect-error currentUser$ type mismatch in demo context
     this.authService.currentUser$.subscribe(user => {
       if (user) this.router.navigate(['/maps']);
     });
