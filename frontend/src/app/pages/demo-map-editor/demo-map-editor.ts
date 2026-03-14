@@ -98,6 +98,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.resizeCanvas();
     this.setupMouseEvents();
+    this.setupTouchEvents();
     window.addEventListener('resize', () => this.resizeCanvas());
 
     const img = new Image();
@@ -455,6 +456,146 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.gridCanvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
+    });
+  }
+
+  private setupTouchEvents(): void {
+    let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let cumulativeMovement = 0;
+    let isTap = false;
+    let isPinching = false;
+    let lastPinchDist = 0;
+    let lastMidX = 0;
+    let lastMidY = 0;
+
+    this.gridCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartTime = Date.now();
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        cumulativeMovement = 0;
+        isTap = true;
+        isPinching = false;
+      } else if (e.touches.length === 2) {
+        isPinching = true;
+        isTap = false;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        lastMidX = (t0.clientX + t1.clientX) / 2;
+        lastMidY = (t0.clientY + t1.clientY) / 2;
+        lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      }
+    }, { passive: false });
+
+    this.gridCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && !isPinching) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastX;
+        const dy = touch.clientY - lastY;
+        cumulativeMovement += Math.abs(dx) + Math.abs(dy);
+        if (cumulativeMovement > 5) isTap = false;
+
+        if (this.gridLocked) {
+          this.offsetX += dx;
+          this.offsetY += dy;
+          this.gridOffsetX = this.offsetX + this.gridOffsetRatioX;
+          this.gridOffsetY = this.offsetY + this.gridOffsetRatioY;
+        } else {
+          this.gridOffsetX += dx;
+          this.gridOffsetY += dy;
+        }
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        this.render();
+      } else if (e.touches.length === 2) {
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const midX = (t0.clientX + t1.clientX) / 2;
+        const midY = (t0.clientY + t1.clientY) / 2;
+        const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+        const rect = this.gridCanvas.getBoundingClientRect();
+        const canvasMidX = midX - rect.left;
+        const canvasMidY = midY - rect.top;
+        const panDx = midX - lastMidX;
+        const panDy = midY - lastMidY;
+
+        if (this.gridLocked) {
+          this.offsetX += panDx;
+          this.offsetY += panDy;
+          this.gridOffsetX = this.offsetX + this.gridOffsetRatioX;
+          this.gridOffsetY = this.offsetY + this.gridOffsetRatioY;
+        } else {
+          this.gridOffsetX += panDx;
+          this.gridOffsetY += panDy;
+        }
+
+        if (lastPinchDist > 0 && dist > 0) {
+          const distRatio = dist / lastPinchDist;
+          if (this.gridLocked) {
+            const newScale = Math.max(0.1, Math.min(5, this.scale * distRatio));
+            const scaleChange = newScale / this.scale;
+            this.offsetX = canvasMidX - (canvasMidX - this.offsetX) * scaleChange;
+            this.offsetY = canvasMidY - (canvasMidY - this.offsetY) * scaleChange;
+            this.gridOffsetX = canvasMidX - (canvasMidX - this.gridOffsetX) * scaleChange;
+            this.gridOffsetY = canvasMidY - (canvasMidY - this.gridOffsetY) * scaleChange;
+            this.scale = newScale;
+            this.gridScale = newScale * this.gridScaleRatio;
+            this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
+            this.gridOffsetRatioY = this.gridOffsetY - this.offsetY;
+          } else {
+            const newGridScale = Math.max(0.1, Math.min(5, this.gridScale * distRatio));
+            const scaleChange = newGridScale / this.gridScale;
+            this.gridOffsetX = canvasMidX - (canvasMidX - this.gridOffsetX) * scaleChange;
+            this.gridOffsetY = canvasMidY - (canvasMidY - this.gridOffsetY) * scaleChange;
+            this.gridScale = newGridScale;
+          }
+        }
+
+        lastMidX = midX;
+        lastMidY = midY;
+        lastPinchDist = dist;
+        this.render();
+      }
+    }, { passive: false });
+
+    this.gridCanvas.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        if (isTap) {
+          const rect = this.gridCanvas.getBoundingClientRect();
+          this.selectedCell = this.gridStrategy.getCellFromPoint(
+            touchStartX - rect.left,
+            touchStartY - rect.top,
+            this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale
+          );
+          if (this.selectedCell) {
+            const key = `${this.selectedCell.row}:${this.selectedCell.col}`;
+            this.selectedCellName = this.cellData.get(key) ?? '';
+          }
+          this.render();
+        }
+        isPinching = false;
+        isTap = false;
+      } else if (e.touches.length === 1) {
+        isPinching = false;
+        isTap = false;
+        const touch = e.touches[0];
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+      }
+    });
+
+    this.gridCanvas.addEventListener('touchcancel', () => {
+      isPinching = false;
+      isTap = false;
     });
   }
 }

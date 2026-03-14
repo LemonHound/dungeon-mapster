@@ -1,4 +1,4 @@
-import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject} from '@angular/core';
+import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, NgZone, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {ActivatedRoute, Router} from '@angular/router';
@@ -37,6 +37,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private wsService = inject(WebSocketService);
   private mapVariableService = inject(MapVariableService);
   private cellVariableValueService = inject(CellVariableValueService);
+  private ngZone = inject(NgZone);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -134,6 +135,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.resizeCanvas();
     this.setupMouseEvents();
+    this.setupTouchEvents();
     window.addEventListener('resize', () => this.resizeCanvas());
   }
 
@@ -844,7 +846,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         const rect = this.gridCanvas.getBoundingClientRect();
         this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-      if (!this.gridLocked) {
+      if (!this.gridLocked && clickDuration >= 200) {
         this.scheduleAutoSave();
       }
     });
@@ -893,6 +895,145 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.gridCanvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
     });
+  }
+
+  private setupTouchEvents(): void {
+    let touchStartTime = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let cumulativeMovement = 0;
+    let isTap = false;
+    let isPinching = false;
+    let lastPinchDist = 0;
+    let lastMidX = 0;
+    let lastMidY = 0;
+
+    this.ngZone.runOutsideAngular(() => {
+    this.gridCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        touchStartTime = Date.now();
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        cumulativeMovement = 0;
+        isTap = true;
+        isPinching = false;
+      } else if (e.touches.length === 2) {
+        isPinching = true;
+        isTap = false;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        lastMidX = (t0.clientX + t1.clientX) / 2;
+        lastMidY = (t0.clientY + t1.clientY) / 2;
+        lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      }
+    }, { passive: false });
+
+    this.gridCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && !isPinching) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastX;
+        const dy = touch.clientY - lastY;
+        cumulativeMovement += Math.abs(dx) + Math.abs(dy);
+        if (cumulativeMovement > 5) isTap = false;
+
+        if (this.gridLocked) {
+          this.offsetX += dx;
+          this.offsetY += dy;
+          this.gridOffsetX = this.offsetX + this.gridOffsetRatioX;
+          this.gridOffsetY = this.offsetY + this.gridOffsetRatioY;
+        } else {
+          this.gridOffsetX += dx;
+          this.gridOffsetY += dy;
+        }
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        this.render();
+      } else if (e.touches.length === 2) {
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const midX = (t0.clientX + t1.clientX) / 2;
+        const midY = (t0.clientY + t1.clientY) / 2;
+        const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+        const rect = this.gridCanvas.getBoundingClientRect();
+        const canvasMidX = midX - rect.left;
+        const canvasMidY = midY - rect.top;
+        const panDx = midX - lastMidX;
+        const panDy = midY - lastMidY;
+
+        if (this.gridLocked) {
+          this.offsetX += panDx;
+          this.offsetY += panDy;
+          this.gridOffsetX = this.offsetX + this.gridOffsetRatioX;
+          this.gridOffsetY = this.offsetY + this.gridOffsetRatioY;
+        } else {
+          this.gridOffsetX += panDx;
+          this.gridOffsetY += panDy;
+        }
+
+        if (lastPinchDist > 0 && dist > 0) {
+          const distRatio = dist / lastPinchDist;
+          if (this.gridLocked) {
+            const newScale = Math.max(0.1, Math.min(5, this.scale * distRatio));
+            const scaleChange = newScale / this.scale;
+            this.offsetX = canvasMidX - (canvasMidX - this.offsetX) * scaleChange;
+            this.offsetY = canvasMidY - (canvasMidY - this.offsetY) * scaleChange;
+            this.gridOffsetX = canvasMidX - (canvasMidX - this.gridOffsetX) * scaleChange;
+            this.gridOffsetY = canvasMidY - (canvasMidY - this.gridOffsetY) * scaleChange;
+            this.scale = newScale;
+            this.gridScale = newScale * this.gridScaleRatio;
+            this.gridOffsetRatioX = this.gridOffsetX - this.offsetX;
+            this.gridOffsetRatioY = this.gridOffsetY - this.offsetY;
+          } else {
+            const newGridScale = Math.max(0.1, Math.min(5, this.gridScale * distRatio));
+            const scaleChange = newGridScale / this.gridScale;
+            this.gridOffsetX = canvasMidX - (canvasMidX - this.gridOffsetX) * scaleChange;
+            this.gridOffsetY = canvasMidY - (canvasMidY - this.gridOffsetY) * scaleChange;
+            this.gridScale = newGridScale;
+          }
+        }
+
+        lastMidX = midX;
+        lastMidY = midY;
+        lastPinchDist = dist;
+        this.render();
+      }
+    }, { passive: false });
+
+    this.gridCanvas.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        if (isTap && Date.now() - touchStartTime < 200 && this.gridLocked) {
+          const rect = this.gridCanvas.getBoundingClientRect();
+          this.ngZone.run(() => {
+            this.handleCellClick(touchStartX - rect.left, touchStartY - rect.top);
+          });
+        } else if (!this.gridLocked && !isTap) {
+          this.ngZone.run(() => {
+            this.scheduleAutoSave();
+          });
+        }
+        isPinching = false;
+        isTap = false;
+      } else if (e.touches.length === 1) {
+        isPinching = false;
+        isTap = false;
+        const touch = e.touches[0];
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+      }
+    });
+
+    this.gridCanvas.addEventListener('touchcancel', () => {
+      isPinching = false;
+      isTap = false;
+    });
+    }); // runOutsideAngular
   }
 
   private handleCellClick(x: number, y: number): void {
