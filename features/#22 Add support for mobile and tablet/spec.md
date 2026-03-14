@@ -51,6 +51,8 @@ Touch gestures map directly to existing mouse interactions. No UI layout changes
 
 ## Implementation Notes
 
+- `demo-map-editor.ts` receives only the touch scaffolding needed to keep it functional; it is intentionally left
+  out of date and will be fully replaced under feature #26
 - Add `setupTouchEvents()` as a separate private method in both `map-editor.ts` and `demo-map-editor.ts`, called
   alongside `setupMouseEvents()` in `ngAfterViewInit`
 - All touch events are registered on `this.gridCanvas`, same as mouse events
