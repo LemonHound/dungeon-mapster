@@ -845,7 +845,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         const rect = this.gridCanvas.getBoundingClientRect();
         this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-      if (!this.gridLocked) {
+      if (!this.gridLocked && clickDuration >= 200) {
         this.scheduleAutoSave();
       }
     });
@@ -1009,7 +1009,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         if (isTap && Date.now() - touchStartTime < 200 && this.gridLocked) {
           const rect = this.gridCanvas.getBoundingClientRect();
           this.handleCellClick(touchStartX - rect.left, touchStartY - rect.top);
-        } else if (!this.gridLocked) {
+        } else if (!this.gridLocked && !isTap) {
           this.scheduleAutoSave();
         }
         isPinching = false;
