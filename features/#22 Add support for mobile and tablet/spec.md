@@ -27,8 +27,8 @@ Touch gestures map directly to existing mouse interactions. No UI layout changes
 - `touchmove`: pan the map using the delta from the previous touch position, using the same offset logic as
   `mousemove`. If cumulative movement exceeds a small threshold (~5px), the gesture is no longer a tap candidate.
 - `touchend`: if no significant movement occurred and duration < 200ms, treat as a tap and call `handleCellClick()`
-  with the touch position. `handleCellClick()` takes a `MouseEvent`, so pass a synthetic `MouseEvent` constructed
-  from the touch's `clientX/clientY` (e.g., `new MouseEvent('click', { clientX, clientY })`). Otherwise, if grid
+  with the touch position. `handleCellClick(x, y)` takes canvas-relative coordinates, so pass
+  `touch.clientX - rect.left` and `touch.clientY - rect.top` (same as the `mouseup` handler). Otherwise, if grid
   is unlocked, trigger auto-save (same as `mouseup` path).
 
 **Two-finger touch (pinch/spread):**
