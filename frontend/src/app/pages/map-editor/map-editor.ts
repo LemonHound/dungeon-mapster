@@ -1,4 +1,4 @@
-import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, inject} from '@angular/core';
+import {Component, ElementRef, ViewChild, AfterViewInit, OnInit, OnDestroy, NgZone, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {ActivatedRoute, Router} from '@angular/router';
@@ -37,6 +37,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private wsService = inject(WebSocketService);
   private mapVariableService = inject(MapVariableService);
   private cellVariableValueService = inject(CellVariableValueService);
+  private ngZone = inject(NgZone);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('gridCanvas') gridCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -909,6 +910,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     let lastMidX = 0;
     let lastMidY = 0;
 
+    this.ngZone.runOutsideAngular(() => {
     this.gridCanvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (e.touches.length === 1) {
@@ -1008,9 +1010,13 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       if (e.touches.length === 0) {
         if (isTap && Date.now() - touchStartTime < 200 && this.gridLocked) {
           const rect = this.gridCanvas.getBoundingClientRect();
-          this.handleCellClick(touchStartX - rect.left, touchStartY - rect.top);
+          this.ngZone.run(() => {
+            this.handleCellClick(touchStartX - rect.left, touchStartY - rect.top);
+          });
         } else if (!this.gridLocked && !isTap) {
-          this.scheduleAutoSave();
+          this.ngZone.run(() => {
+            this.scheduleAutoSave();
+          });
         }
         isPinching = false;
         isTap = false;
@@ -1027,6 +1033,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       isPinching = false;
       isTap = false;
     });
+    }); // runOutsideAngular
   }
 
   private handleCellClick(x: number, y: number): void {
