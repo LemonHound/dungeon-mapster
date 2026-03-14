@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+  <title>Dungeon Mapster – Panel Mockup #15</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      height: 52px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 0;
+      flex-shrink: 0;
+      z-index: 200;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 8px;
+      text-decoration: none; flex-shrink: 0;
+    }
+    .topbar-logo { font-size: 18px; }
+    .topbar-title { font-size: 15px; font-weight: 600; color: #c9d1d9; }
+
+    /* center nav */
+    .topbar-nav {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      gap: 4px;
+    }
+    .topbar-nav-link {
+      font-size: 13px; font-weight: 500;
+      color: #6e7681;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .topbar-nav-link:hover { color: #c9d1d9; background: #21262d; }
+    .topbar-nav-link.active { color: #e6edf3; background: #21262d; }
+
+    /* right-side icon buttons */
+    .topbar-actions {
+      display: flex; align-items: center; gap: 6px;
+      flex-shrink: 0;
+    }
+    .topbar-btn {
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #6e7681;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: all 0.15s;
+      position: relative;
+      padding: 0 10px;
+      white-space: nowrap;
+    }
+    .topbar-btn:hover { border-color: #6e7681; color: #c9d1d9; background: #2d333b; }
+    .topbar-btn.active { border-color: #f0883e; color: #f0883e; background: rgba(240,136,62,0.1); }
+    .topbar-btn .btn-label { font-size: 12px; font-weight: 500; }
+
+    /* account avatar */
+    .topbar-avatar {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: #1f4788;
+      color: #79c0ff;
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .topbar-tooltip {
+      position: absolute;
+      top: 38px; right: 0;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: #8b949e;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 300;
+    }
+    .topbar-btn:hover .topbar-tooltip { opacity: 1; }
+
+    /* ── Main ── */
+    .main { flex: 1; position: relative; overflow: hidden; }
+
+    /* ── Map area ── */
+    .map-area {
+      position: absolute; inset: 0;
+      background: #1a1f2e;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .hex-grid {
+      position: absolute; inset: 0;
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    .map-image-bg {
+      position: absolute;
+      top: 60px; left: 80px; right: 80px; bottom: 60px;
+      border-radius: 4px;
+      background: linear-gradient(135deg, #1e2a1e 0%, #2a1e1e 50%, #1e1e2a 100%);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .hex-highlight {
+      position: absolute;
+      top: 36%; left: 44%;
+      width: 72px; height: 62px;
+      display: none;
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(232,168,56,0.6));
+    }
+    .hex-highlight svg polygon {
+      fill: rgba(232,168,56,0.15);
+      stroke: #e8a838;
+      stroke-width: 2.5;
+    }
+    .hex-highlight.visible { display: block; }
+
+    .map-hint {
+      position: absolute;
+      bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px; color: #484f58;
+      pointer-events: none;
+      transition: opacity 0.3s; opacity: 0;
+      white-space: nowrap;
+    }
+    .map-hint.visible { opacity: 1; }
+
+    /* ── Demo controls ── */
+    .demo-strip {
+      position: absolute;
+      top: 10px; left: 10px;
+      display: flex; flex-direction: column; gap: 5px;
+      z-index: 50;
+    }
+    .demo-label {
+      font-size: 9px; font-weight: 700;
+      color: #484f58; letter-spacing: 0.8px;
+      text-transform: uppercase; padding: 0 2px;
+    }
+    .demo-btn {
+      font-size: 11px; padding: 5px 10px;
+      border-radius: 6px; border: 1px solid #30363d;
+      background: rgba(22,27,34,0.92); color: #8b949e; cursor: pointer;
+    }
+    .demo-btn:hover { background: #21262d; color: #c9d1d9; }
+    .demo-btn.state-on { border-color: #e8a838; color: #e8a838; background: rgba(232,168,56,0.08); }
+
+    /* ── Notes FAB (only persistent FAB) ── */
+    .fab-notes {
+      position: absolute;
+      bottom: 20px; right: 20px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px 10px 12px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 24px;
+      color: #c9d1d9;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      user-select: none;
+      z-index: 100;
+      transition: right 0.28s cubic-bezier(0.4,0,0.2,1),
+                  background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .fab-notes:hover { background: #2d333b; border-color: #6e7681; color: #fff; }
+    .fab-notes.active { border-color: #e8a838; color: #e8a838; background: rgba(232,168,56,0.1); }
+
+    /* slide left when any panel is open */
+    .fab-notes.panel-open { right: calc(55% + 16px); }
+    @media (orientation: portrait) {
+      .fab-notes.panel-open { right: calc(100% - 84px); }
+    }
+
+    /* ── Panel (shared base) ── */
+    .panel {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 55%;
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      z-index: 150;
+      box-shadow: -6px 0 32px rgba(0,0,0,0.6);
+    }
+    .panel.open { transform: translateX(0); }
+
+    @media (orientation: portrait) {
+      .panel { width: 100%; border-left: none; }
+    }
+
+    /* ── Panel header ── */
+    .panel-header {
+      display: flex; align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid #21262d;
+      gap: 10px; flex-shrink: 0;
+    }
+    .panel-icon { font-size: 20px; width: 28px; text-align: center; }
+    .panel-titles { flex: 1; min-width: 0; }
+    .panel-title { font-size: 15px; font-weight: 600; color: #e6edf3; }
+    .panel-subtitle { font-size: 11px; color: #6e7681; margin-top: 1px; }
+    .panel-close {
+      width: 32px; height: 32px;
+      border-radius: 8px; border: 1px solid transparent;
+      background: transparent; color: #6e7681;
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .panel-close:hover { background: #21262d; border-color: #30363d; color: #c9d1d9; }
+
+    /* admin sub-tabs */
+    .panel-nav {
+      display: flex;
+      border-bottom: 1px solid #21262d;
+      padding: 0 8px; flex-shrink: 0;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .panel-nav::-webkit-scrollbar { display: none; }
+    .nav-btn {
+      padding: 9px 12px;
+      font-size: 12px; font-weight: 500;
+      color: #6e7681; background: transparent;
+      border: none; border-bottom: 2px solid transparent;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.15s; margin-bottom: -1px;
+    }
+    .nav-btn:hover { color: #c9d1d9; }
+    .nav-btn.active { color: #f0883e; border-bottom-color: #f0883e; }
+
+    /* ── Panel body ── */
+    .panel-body {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px;
+      scrollbar-width: thin;
+      scrollbar-color: #30363d transparent;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .section-view { display: none; }
+    .section-view.active { display: block; }
+
+    /* ── Note type tabs ── */
+    .note-tabs {
+      display: flex;
+      gap: 2px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 3px;
+      margin-bottom: 8px;
+    }
+    .note-tab {
+      flex: 1;
+      padding: 5px 8px;
+      font-size: 11px; font-weight: 500;
+      color: #6e7681;
+      background: transparent;
+      border: none; border-radius: 6px;
+      cursor: pointer; text-align: center;
+      transition: all 0.15s;
+    }
+    .note-tab:hover { color: #c9d1d9; }
+    .note-tab.active { background: #21262d; color: #e6edf3; }
+    .note-tab.active.private { color: #a371f7; }
+    .note-tab.active.yournote { color: #3fb950; }
+    .note-pane { display: none; }
+    .note-pane.active { display: block; }
+    .note-type-hint {
+      font-size: 11px; color: #484f58;
+      margin-bottom: 6px; line-height: 1.4;
+    }
+
+    .player-notes-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .player-note-entry {
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 6px; padding: 10px;
+    }
+    .player-note-byline {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .player-note-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; flex-shrink: 0;
+    }
+    .player-note-name { font-size: 11px; color: #6e7681; }
+    .player-note-text { font-size: 12px; color: #c9d1d9; line-height: 1.5; }
+
+    .acc-coming-soon {
+      font-size: 10px; color: #484f58;
+      background: #21262d; border-radius: 4px;
+      padding: 1px 6px; margin-right: 4px;
+    }
+
+    /* ── Shared components ── */
+    .row-label {
+      font-size: 10px; font-weight: 700;
+      color: #484f58; text-transform: uppercase;
+      letter-spacing: 0.8px; margin: 20px 0 8px;
+    }
+    .row-label:first-child { margin-top: 0; }
+
+    .note-box {
+      width: 100%; min-height: 100px;
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 6px; padding: 10px;
+      color: #c9d1d9; font-size: 13px; font-family: inherit;
+      resize: vertical; outline: none;
+      transition: border-color 0.15s; line-height: 1.5;
+    }
+    .note-box:focus { border-color: #388bfd; }
+    .note-box::placeholder { color: #484f58; }
+
+    .var-list { display: flex; flex-direction: column; gap: 6px; }
+    .var-row {
+      display: flex; align-items: center; gap: 8px;
+      background: #0d1117; border: 1px solid #21262d;
+      border-radius: 6px; padding: 8px 10px;
+    }
+    .var-key { font-size: 12px; color: #8b949e; flex: 1; font-family: monospace; }
+    .var-val {
+      font-size: 12px; color: #c9d1d9; font-family: monospace;
+      background: transparent; border: none;
+      text-align: right; width: 90px; outline: none;
+    }
+    .var-val:focus { color: #e8a838; }
+
+    .cell-badge-row {
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 18px; padding-bottom: 16px;
+      border-bottom: 1px solid #21262d;
+    }
+    .cell-id { font-size: 28px; font-weight: 700; color: #e8a838; font-family: monospace; }
+    .cell-coords { font-size: 12px; color: #484f58; }
+
+    .acc { border: 1px solid #21262d; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+    .acc-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 11px 14px; background: #0d1117;
+      cursor: pointer; user-select: none; transition: background 0.15s;
+    }
+    .acc-head:hover { background: #111820; }
+    .acc-title { flex: 1; font-size: 13px; font-weight: 500; color: #c9d1d9; }
+    .acc-count {
+      font-size: 11px; color: #484f58;
+      background: #21262d; border-radius: 10px; padding: 1px 7px;
+    }
+    .acc-chev { font-size: 10px; color: #6e7681; transition: transform 0.2s; }
+    .acc.open .acc-chev { transform: rotate(180deg); }
+    .acc-body {
+      display: none; padding: 12px 14px;
+      background: #161b22; border-top: 1px solid #21262d;
+    }
+    .acc.open .acc-body { display: block; }
+
+    .set-row {
+      display: flex; align-items: center;
+      padding: 11px 0; border-bottom: 1px solid #21262d; gap: 12px;
+    }
+    .set-row:last-child { border-bottom: none; }
+    .set-info { flex: 1; }
+    .set-label { font-size: 13px; color: #c9d1d9; }
+    .set-sub { font-size: 11px; color: #484f58; margin-top: 2px; }
+    .set-ctrl { flex-shrink: 0; }
+
+    select.inp, input.inp {
+      background: #0d1117; border: 1px solid #30363d;
+      border-radius: 6px; color: #c9d1d9;
+      padding: 5px 8px; font-size: 12px; outline: none;
+    }
+    select.inp:focus, input.inp:focus { border-color: #388bfd; }
+
+    .toggle {
+      width: 36px; height: 20px; background: #388bfd;
+      border-radius: 10px; position: relative;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .toggle::after {
+      content: ''; position: absolute;
+      top: 2px; right: 2px;
+      width: 16px; height: 16px;
+      background: white; border-radius: 8px;
+      transition: right 0.2s, left 0.2s;
+    }
+    .toggle.off { background: #30363d; }
+    .toggle.off::after { right: auto; left: 2px; }
+
+    .upload-zone {
+      border: 2px dashed #30363d; border-radius: 8px;
+      padding: 24px 16px; text-align: center;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .upload-zone:hover { border-color: #388bfd; background: rgba(56,139,253,0.04); }
+    .upload-icon { font-size: 28px; margin-bottom: 8px; }
+    .upload-text { font-size: 13px; color: #6e7681; }
+    .upload-sub { font-size: 11px; color: #484f58; margin-top: 3px; }
+
+    .ghost-btn {
+      width: 100%; margin-top: 8px; padding: 8px;
+      font-size: 12px; background: transparent;
+      border: 1px dashed #30363d; border-radius: 6px;
+      color: #6e7681; cursor: pointer; transition: all 0.15s;
+    }
+    .ghost-btn:hover { border-color: #6e7681; color: #c9d1d9; }
+
+    .member-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid #21262d;
+    }
+    .member-row:last-child { border-bottom: none; }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .m-name { font-size: 13px; color: #c9d1d9; }
+    .m-role { font-size: 11px; color: #484f58; margin-top: 1px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; flex-shrink: 0; }
+    .online { background: #3fb950; }
+    .away { background: #f0883e; }
+    .role-btn {
+      font-size: 11px; padding: 3px 8px;
+      border-radius: 4px; border: 1px solid #30363d;
+      background: #21262d; color: #6e7681;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .role-btn:hover { border-color: #6e7681; color: #c9d1d9; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo">🗺️</div>
+    <div class="topbar-title">Dungeon Mapster</div>
+  </div>
+
+  <div class="topbar-nav">
+    <div class="topbar-nav-link">My Maps</div>
+    <div class="topbar-nav-link active">The Sunken Keep</div>
+    <div class="topbar-nav-link">Explore</div>
+  </div>
+
+  <div class="topbar-actions">
+    <!-- DM-only: conditionally rendered -->
+    <div class="topbar-btn" id="adminBtn" onclick="toggleAdmin()">
+      <span>🛡️</span>
+      <span class="btn-label">DM Admin</span>
+      <div class="topbar-tooltip">Map administration</div>
+    </div>
+    <!-- Everyone: account button -->
+    <div class="topbar-btn" onclick="">
+      <div class="topbar-avatar">DM</div>
+      <span class="btn-label">Account</span>
+      <div class="topbar-tooltip">Profile &amp; settings</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Map (click empty space to close) -->
+  <div class="map-area" id="mapArea" onclick="handleMapClick(event)">
+    <svg class="hex-grid" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="hp" x="0" y="0" width="70" height="80" patternUnits="userSpaceOnUse">
+          <polygon points="35,2 63,18 63,52 35,68 7,52 7,18" fill="none" stroke="#3498db" stroke-width="0.7"/>
+          <polygon points="35,42 63,58 63,92 35,108 7,92 7,58" fill="none" stroke="#3498db" stroke-width="0.7"/>
+          <polygon points="70,2 98,18 98,52 70,68 42,52 42,18" fill="none" stroke="#3498db" stroke-width="0.7"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#hp)"/>
+    </svg>
+    <div class="map-image-bg"></div>
+    <div class="hex-highlight" id="hexHL">
+      <svg viewBox="0 0 72 62"><polygon points="36,2 66,18 66,50 36,60 6,50 6,18"/></svg>
+    </div>
+    <div class="map-hint" id="mapHint">Click empty map to close · Click a different hex to switch</div>
+  </div>
+
+  <!-- Demo strip -->
+  <div class="demo-strip">
+    <div class="demo-label">Mockup Controls</div>
+    <button class="demo-btn" id="btnSel" onclick="selectHex(event)">▶ Select a Hex</button>
+    <button class="demo-btn state-on" id="btnDesel" style="display:none" onclick="closeAll()">✕ Deselect Hex</button>
+  </div>
+
+  <!-- Single persistent Notes FAB -->
+  <div class="fab-notes" id="fabNotes" onclick="handleNotesFab()">
+    <span style="font-size:15px">📖</span> Notes
+  </div>
+
+  <!-- ── CELL FLYOUT (no sub-nav) ── -->
+  <div class="panel" id="panelCell">
+    <div class="panel-header">
+      <div class="panel-icon">⬡</div>
+      <div class="panel-titles">
+        <div class="panel-title">Cell B4</div>
+        <div class="panel-subtitle">Row 1 · Col 3</div>
+      </div>
+      <button class="panel-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="cell-badge-row">
+        <div class="cell-id">B4</div>
+        <div class="cell-coords">Row 1 · Col 3</div>
+      </div>
+
+      <div class="row-label">Variables</div>
+      <div class="var-list">
+        <div class="var-row"><span class="var-key">terrain_type</span><input class="var-val" value="forest"/></div>
+        <div class="var-row"><span class="var-key">encounter_rating</span><input class="var-val" value="3"/></div>
+        <div class="var-row"><span class="var-key">discovered</span><input class="var-val" value="true"/></div>
+      </div>
+
+      <div class="row-label">Cell Notes</div>
+      <div class="note-tabs">
+        <div class="note-tab active" onclick="cellNoteTab(this,'cn-shared')">Shared</div>
+        <div class="note-tab yournote" onclick="cellNoteTab(this,'cn-public')">Player Notes</div>
+        <div class="note-tab private" onclick="cellNoteTab(this,'cn-private')">Private</div>
+      </div>
+      <div class="note-pane active" id="cn-shared">
+        <div class="note-type-hint">Visible and editable by all players.</div>
+        <textarea class="note-box" placeholder="Shared notes for this cell…"></textarea>
+      </div>
+      <div class="note-pane" id="cn-public">
+        <div class="note-type-hint">Your attributed note — all players can read it.</div>
+        <textarea class="note-box" style="border-color:#1a3a2a" placeholder="Leave a note for the party…">Troll patrol route passes through here every dusk.</textarea>
+        <div class="player-notes-list">
+          <div class="player-note-entry">
+            <div class="player-note-byline">
+              <div class="player-note-avatar" style="background:#3d2b0f;color:#e8a838">RN</div>
+              <span class="player-note-name">RangerNorth</span>
+            </div>
+            <div class="player-note-text">Found tracks leading northeast — recent, maybe 2 hours old.</div>
+          </div>
+          <div class="player-note-entry">
+            <div class="player-note-byline">
+              <div class="player-note-avatar" style="background:#1a3a2a;color:#3fb950">WZ</div>
+              <span class="player-note-name">WizardZara</span>
+            </div>
+            <div class="player-note-text">Detected faint abjuration magic. Ward or trap nearby.</div>
+          </div>
+        </div>
+      </div>
+      <div class="note-pane" id="cn-private">
+        <div class="note-type-hint">Only visible to you. Hidden from everyone including the DM.</div>
+        <textarea class="note-box" style="border-color:#3d2b6e" placeholder="Your private notes…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NOTES FLYOUT (no sub-nav) ── -->
+  <div class="panel" id="panelNotes">
+    <div class="panel-header">
+      <div class="panel-icon">📖</div>
+      <div class="panel-titles">
+        <div class="panel-title">Map Notes</div>
+        <div class="panel-subtitle">The Sunken Keep</div>
+      </div>
+      <button class="panel-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="panel-body">
+      <div class="acc open" id="acc-q">
+        <div class="acc-head" onclick="toggleAcc('acc-q')">
+          <span>⚔️</span><span class="acc-title">Quests</span>
+          <span class="acc-count">2</span>
+          <span class="acc-coming-soon">richer model coming</span>
+          <span class="acc-chev">▼</span>
+        </div>
+        <div class="acc-body">
+          <textarea class="note-box" style="min-height:80px">- [active] Slay the troll chieftain in hex B4
+- [complete] Recover the merchant's stolen goods</textarea>
+        </div>
+      </div>
+      <div class="acc" id="acc-n">
+        <div class="acc-head" onclick="toggleAcc('acc-n')">
+          <span>🧙</span><span class="acc-title">NPCs</span>
+          <span class="acc-count">3</span>
+          <span class="acc-coming-soon">richer model coming</span>
+          <span class="acc-chev">▼</span>
+        </div>
+        <div class="acc-body">
+          <textarea class="note-box" style="min-height:80px">Aldric the Merchant – friendly, owes party a favor
+Maren the Guard Captain – neutral, suspicious of party
+Gruk the Troll King – hostile, lair at B4</textarea>
+        </div>
+      </div>
+      <div class="acc" id="acc-s">
+        <div class="acc-head" onclick="toggleAcc('acc-s')">
+          <span>📅</span><span class="acc-title">Session Notes</span>
+          <span class="acc-count">1</span>
+          <span class="acc-coming-soon">richer model coming</span>
+          <span class="acc-chev">▼</span>
+        </div>
+        <div class="acc-body">
+          <textarea class="note-box" style="min-height:80px">Session 4: Party found the cave in B4 but retreated — trolls too powerful. Return at higher level.</textarea>
+        </div>
+      </div>
+      <div class="acc" id="acc-g">
+        <div class="acc-head" onclick="toggleAcc('acc-g')">
+          <span>📝</span><span class="acc-title">Public Shared Note</span>
+          <span class="acc-count">0</span><span class="acc-chev">▼</span>
+        </div>
+        <div class="acc-body">
+          <textarea class="note-box" style="min-height:80px" placeholder="Shared campaign notes visible to all players…"></textarea>
+        </div>
+      </div>
+
+      <div class="acc" id="acc-personal">
+        <div class="acc-head" onclick="toggleAcc('acc-personal')">
+          <span>👥</span><span class="acc-title">Player Notes</span>
+          <span class="acc-chev">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="note-tabs" style="margin-top:0">
+            <div class="note-tab active yournote" onclick="mapNoteTab(this,'mn-public')">Player Notes</div>
+            <div class="note-tab private" onclick="mapNoteTab(this,'mn-private')">Private</div>
+          </div>
+          <div class="note-pane active" id="mn-public">
+            <div class="note-type-hint">Your attributed note — all players can read it.</div>
+            <textarea class="note-box" style="min-height:80px;border-color:#1a3a2a" placeholder="Leave a note for the party…"></textarea>
+            <div class="player-notes-list">
+              <div class="player-note-entry">
+                <div class="player-note-byline">
+                  <div class="player-note-avatar" style="background:#3d2b0f;color:#e8a838">RN</div>
+                  <span class="player-note-name">RangerNorth</span>
+                </div>
+                <div class="player-note-text">The western passage looks like it connects to the old dwarven road. Worth exploring next session.</div>
+              </div>
+              <div class="player-note-entry">
+                <div class="player-note-byline">
+                  <div class="player-note-avatar" style="background:#1a3a2a;color:#3fb950">WZ</div>
+                  <span class="player-note-name">WizardZara</span>
+                </div>
+                <div class="player-note-text">Strong divination interference throughout the keep — something is suppressing scrying magic.</div>
+              </div>
+            </div>
+          </div>
+          <div class="note-pane" id="mn-private">
+            <div class="note-type-hint">Only visible to you. Hidden from everyone including the DM.</div>
+            <textarea class="note-box" style="min-height:80px;border-color:#3d2b6e" placeholder="Your private map notes…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADMIN FLYOUT (sub-tabs: DM only) ── -->
+  <div class="panel" id="panelAdmin">
+    <div class="panel-header">
+      <div class="panel-icon">🛡️</div>
+      <div class="panel-titles">
+        <div class="panel-title">DM Admin</div>
+        <div class="panel-subtitle">The Sunken Keep</div>
+      </div>
+      <button class="panel-close" onclick="closeAll()">✕</button>
+    </div>
+    <div class="panel-nav">
+      <button class="nav-btn active" onclick="adminTab(this,'sv-map')">Map</button>
+      <button class="nav-btn" onclick="adminTab(this,'sv-members')">Members</button>
+      <button class="nav-btn" onclick="adminTab(this,'sv-vars')">Variables</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="section-view active" id="sv-map">
+        <div class="row-label">Map Image</div>
+        <div class="upload-zone">
+          <div class="upload-icon">🗺️</div>
+          <div class="upload-text">Drop an image or click to upload</div>
+          <div class="upload-sub">PNG, JPG, WEBP · up to 20 MB</div>
+        </div>
+        <div class="row-label">Grid</div>
+        <div class="set-row">
+          <div class="set-info"><div class="set-label">Grid Type</div></div>
+          <div class="set-ctrl">
+            <select class="inp">
+              <option>Hex (flat-top)</option>
+              <option>Hex (pointy-top)</option>
+              <option>Square</option>
+            </select>
+          </div>
+        </div>
+        <div class="set-row">
+          <div class="set-info"><div class="set-label">Cell Size</div></div>
+          <div class="set-ctrl"><input class="inp" type="number" value="40" style="width:64px"/></div>
+        </div>
+        <div class="set-row">
+          <div class="set-info">
+            <div class="set-label">Lock Grid to Map</div>
+            <div class="set-sub">Grid moves with the map image</div>
+          </div>
+          <div class="set-ctrl"><div class="toggle" onclick="this.classList.toggle('off')"></div></div>
+        </div>
+        <div class="set-row">
+          <div class="set-info"><div class="set-label">Show Grid</div></div>
+          <div class="set-ctrl"><div class="toggle" onclick="this.classList.toggle('off')"></div></div>
+        </div>
+      </div>
+
+      <div class="section-view" id="sv-members">
+        <div class="row-label">Connected (3)</div>
+        <div class="member-row">
+          <div class="avatar" style="background:#1f4788;color:#79c0ff">DM</div>
+          <div style="flex:1">
+            <div class="m-name">DungeonMaster42</div>
+            <div class="m-role">Dungeon Master</div>
+          </div>
+          <div class="dot online"></div>
+        </div>
+        <div class="member-row">
+          <div class="avatar" style="background:#3d2b0f;color:#e8a838">RN</div>
+          <div style="flex:1">
+            <div class="m-name">RangerNorth</div>
+            <div class="m-role">Player</div>
+          </div>
+          <button class="role-btn">Promote</button>
+          <div class="dot online"></div>
+        </div>
+        <div class="member-row">
+          <div class="avatar" style="background:#1a3a2a;color:#3fb950">WZ</div>
+          <div style="flex:1">
+            <div class="m-name">WizardZara</div>
+            <div class="m-role">Player</div>
+          </div>
+          <button class="role-btn">Promote</button>
+          <div class="dot away"></div>
+        </div>
+      </div>
+
+      <div class="section-view" id="sv-vars">
+        <div class="row-label">Map Variables</div>
+        <div class="var-list">
+          <div class="var-row"><span class="var-key">terrain_type</span><input class="var-val" value="string"/></div>
+          <div class="var-row"><span class="var-key">encounter_rating</span><input class="var-val" value="number"/></div>
+          <div class="var-row"><span class="var-key">discovered</span><input class="var-val" value="boolean"/></div>
+        </div>
+        <button class="ghost-btn">+ Add Variable</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let activePanel = null;
+  let hexSelected = false;
+
+  function syncFab() {
+    const fab = document.getElementById('fabNotes');
+    fab.classList.toggle('panel-open', activePanel !== null);
+    fab.classList.toggle('active', activePanel === 'notes');
+  }
+
+  function doOpen(name) {
+    // close all panels first
+    ['Cell','Notes','Admin'].forEach(p =>
+      document.getElementById('panel' + p).classList.remove('open')
+    );
+    document.getElementById('adminBtn').classList.remove('active');
+    document.getElementById('panelAdmin').classList.remove('open');
+
+    document.getElementById('panel' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('open');
+    if (name === 'admin') document.getElementById('adminBtn').classList.add('active');
+    activePanel = name;
+    syncFab();
+  }
+
+  function closeAll() {
+    ['Cell','Notes','Admin'].forEach(p =>
+      document.getElementById('panel' + p).classList.remove('open')
+    );
+    document.getElementById('adminBtn').classList.remove('active');
+    if (hexSelected) {
+      hexSelected = false;
+      document.getElementById('hexHL').classList.remove('visible');
+      document.getElementById('btnSel').style.display = 'block';
+      document.getElementById('btnDesel').style.display = 'none';
+    }
+    document.getElementById('mapHint').classList.remove('visible');
+    activePanel = null;
+    syncFab();
+  }
+
+  function handleNotesFab() {
+    if (activePanel === 'notes') { closeAll(); return; }
+    // if cell is open: close cell (deselect hex) then open notes
+    if (hexSelected) {
+      hexSelected = false;
+      document.getElementById('hexHL').classList.remove('visible');
+      document.getElementById('btnSel').style.display = 'block';
+      document.getElementById('btnDesel').style.display = 'none';
+      document.getElementById('mapHint').classList.remove('visible');
+    }
+    doOpen('notes');
+  }
+
+  function toggleAdmin() {
+    if (activePanel === 'admin') { closeAll(); return; }
+    doOpen('admin');
+  }
+
+  function selectHex(e) {
+    if (e) e.stopPropagation();
+    hexSelected = true;
+    document.getElementById('hexHL').classList.add('visible');
+    document.getElementById('btnSel').style.display = 'none';
+    document.getElementById('btnDesel').style.display = 'block';
+    document.getElementById('mapHint').classList.add('visible');
+    doOpen('cell');
+  }
+
+  function handleMapClick(e) {
+    if (e.target.closest('.demo-strip')) return;
+    if (activePanel !== null) closeAll();
+  }
+
+  function adminTab(btn, viewId) {
+    document.querySelectorAll('.panel-nav .nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#panelAdmin .section-view').forEach(v => v.classList.remove('active'));
+    document.getElementById(viewId).classList.add('active');
+  }
+
+  function toggleAcc(id) {
+    document.getElementById(id).classList.toggle('open');
+  }
+
+  function cellNoteTab(btn, paneId) {
+    btn.closest('.note-tabs').querySelectorAll('.note-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#panelCell .note-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(paneId).classList.add('active');
+  }
+
+  function mapNoteTab(btn, paneId) {
+    const tabs = btn.closest('.note-tabs');
+    tabs.querySelectorAll('.note-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    tabs.closest('.acc-body').querySelectorAll('.note-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(paneId).classList.add('active');
+  }
+</script>
+</body>
+</html>
