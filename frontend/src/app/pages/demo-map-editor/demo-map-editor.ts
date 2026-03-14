@@ -460,7 +460,6 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private setupTouchEvents(): void {
-    let touchStartTime = 0;
     let touchStartX = 0;
     let touchStartY = 0;
     let lastX = 0;
@@ -476,7 +475,6 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
       e.preventDefault();
       if (e.touches.length === 1) {
         const touch = e.touches[0];
-        touchStartTime = Date.now();
         touchStartX = touch.clientX;
         touchStartY = touch.clientY;
         lastX = touch.clientX;
