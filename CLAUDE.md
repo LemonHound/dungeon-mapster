@@ -9,7 +9,7 @@
 # Conversation Preferences
 
 * Keep responses brief. Only provide explanations when requested.
-* Never use emojis or comments in code, unless explicitly requested.
+* Never use emojis or comments in code unless explicitly requested.
 * Write simple code, use best practice naming conventions.
 * Check your work - after each response, review the response and note any potential mistakes or files that should be
   checked for consistency / conflicts.
