@@ -85,7 +85,7 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   private localImageObjectUrl: string | null = null;
 
   ngOnInit(): void {
-    // @ts-ignore
+    // @ts-expect-error
     this.authService.currentUser$.subscribe(user => {
       if (user) this.router.navigate(['/maps']);
     });
