@@ -32,10 +32,17 @@
 
 ## CI/CD
 
-- **GitHub Actions:** `.github/workflows/ci.yml`
-    - Backend: Maven build + tests
-    - Frontend: npm install, lint, build
-- **Cloud Build:** Builds Docker image, pushes to Artifact Registry, deploys to Cloud Run
+- **GitHub Actions:** `.github/workflows/ci.yml` — PR gate only
+    - Backend: JUnit 5 unit tests
+    - Frontend: Vitest unit + component tests, ESLint
+- **Cloud Build:** Triggered on every merge to `main` (no manual release tags)
+    - Builds Docker image tagged `YYYY-MM-DD-{short-sha}` (e.g. `2026-03-15-a3f2c91`)
+    - Runs integration tests (Testcontainers)
+    - Deploys to test Cloud Run, runs Playwright E2E tests
+    - Deploys to prod Cloud Run on E2E pass; auto-rollback on failure
+- **Playwright:** E2E tests including multi-user WebSocket simulation (3 concurrent browser contexts)
+- **Testcontainers:** Ephemeral PostgreSQL for integration tests
+- **Husky + lint-staged:** Pre-commit ESLint on staged frontend files
 
 ## Local Development
 
