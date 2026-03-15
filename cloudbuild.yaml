@@ -89,6 +89,10 @@ steps:
           --update-env-vars="DB_NAME=dungeonmapster_test" \
           --quiet
 
+        gcloud run services update-traffic ${_TEST_SERVICE} \
+          --region=${_DEPLOY_REGION} \
+          --to-latest
+
   # Create GitHub deployment record (returns ID used for all subsequent status updates)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: github-deployment-create
