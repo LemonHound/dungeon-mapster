@@ -21,7 +21,10 @@ verified, deployed release to production.
 
 ### 1. Remove manual release tags — trigger Cloud Build on every merge to `main`
 
-**Decision:** Cloud Build is triggered automatically on every push to `main`. No release tags are required.
+**Decision:** Both test and prod Cloud Build triggers fire automatically on every push to `main`. No release tags
+are required. GitHub connection is via GCP-native GitHub integration — no personal access token is needed for
+triggering. The prod trigger retains the legacy semantic version tag trigger in parallel until the new pipeline
+completes its first successful end-to-end run, at which point the tag trigger is removed.
 
 **Why:** Release tags require a manual step, which breaks the "no manual steps" requirement. Every merge to `main`
 should represent a potentially shippable release; manual tagging introduces a gap between "merged" and "released"
@@ -148,6 +151,10 @@ the overhead of managing a second GCP project, IAM structure, or billing account
   deployment (Cloud Build owns the full post-merge pipeline)
 - A `cloudbuild.yaml` must be written encoding: build → integration tests → deploy test → E2E → deploy prod →
   rollback logic → GitHub status reporting
+- `cloudbuild.yaml` replaces the existing inline Cloud Build config on both triggers. The existing inline config's
+  substitution variables (already defined on the prod trigger, not yet configured on the test trigger) must be
+  audited and carried into `cloudbuild.yaml` before the inline config is removed. The test trigger substitution
+  variables must be configured to match before the pipeline is run for the first time.
 - A `test` Spring profile must be added (`application-test.properties`) for Testcontainers configuration
 - Backend `pom.xml` must add Testcontainers dependencies (test scope only)
 - Frontend `package.json` must add `@testing-library/angular`, `@playwright/test`, Husky, and lint-staged

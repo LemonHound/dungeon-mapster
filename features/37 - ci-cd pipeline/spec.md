@@ -164,17 +164,23 @@ A `success` status is posted after prod deploy completes successfully.
 
 ## Pre-Implementation Setup (One-Time Manual Steps)
 
-The following must be completed before the pipeline can run. These are infrastructure provisioning steps, not part
-of the implementation PR.
+All steps below are complete. Documented here for reference.
 
-1. **Create test Cloud Run service** — `dungeon-mapster-test` (separate from prod)
-2. **Create GCS test bucket** — `dungeon-mapster-test` (isolated from production bucket)
-3. **Update Cloud Build trigger** — change from release-tag trigger to `main` branch push trigger
-4. **Grant Cloud Build service account permissions** (see below)
-5. **Add secrets to Secret Manager:**
-   - `GITHUB_TOKEN` — personal access token with `repo` scope (for Deployments API)
+1. **Test Cloud Run service** — `dungeon-mapster-test` provisioned, port 8080, public access (allow unauthenticated)
+   - URL: `https://dungeon-mapster-test-675207457500.us-central1.run.app`
+   - Environment variables mirror `application-prod.properties` naming convention, with test-specific values
+   - Cloud SQL connection points to `dungeonmapster-db` instance; `DB_NAME` set to `dungeonmapster_test`
+   - `app.frontend-url` set to the test Cloud Run URL above
+2. **Test database** — `dungeonmapster_test` created on existing `dungeonmapster-db` Cloud SQL instance (no new instance)
+   - `dungeonmapster` user granted full privileges on `dungeonmapster_test` database and its `public` schema
+3. **GCS test bucket** — `dungeon-mapster-test` created with public access prevention enabled
+4. **Cloud Build triggers** — both test and prod triggers updated from release-tag to `main` branch push
+   - GitHub connection is via GCP-native GitHub integration (no token required for triggering)
+   - Prod trigger retains semantic version tag trigger until the pipeline is proven end-to-end ~~(removed after first successful run)~~
+5. **Cloud Build service account permissions** — all five roles granted (see table below)
+6. **Secrets added to Secret Manager:**
+   - `GITHUB_TOKEN` — fine-grained personal access token, scoped to `LemonHound/dungeon-mapster`, `Deployments: read/write` only (used for GitHub Deployments API notifications — not for triggering Cloud Build)
    - `JWT_SECRET` — same value as prod, used in integration tests
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — used only if OAuth mock requires them; otherwise omit
 
 ### Cloud Build Service Account Permissions
 
@@ -190,6 +196,13 @@ The Cloud Build service account (`[PROJECT_NUMBER]@cloudbuild.gserviceaccount.co
 
 The Cloud Run service account (the identity the running service uses) already has the necessary Cloud SQL and GCS
 production bucket access. No changes needed there.
+
+### Cloud Build Config Migration Note
+
+The prod Cloud Build trigger currently uses an inline build config. Before writing `cloudbuild.yaml`, copy all
+existing inline settings (deploy command, image name, region, service name, env var references, substitution
+variables) and reuse those exact values in the new file. This avoids introducing subtle differences that would
+require separate troubleshooting.
 
 ## New Dependencies
 
