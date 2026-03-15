@@ -33,14 +33,14 @@ describe('AuthService', () => {
   });
 
   it('isAuthenticated returns false when no token', () => {
-    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.isAuthenticated()).toBe(false);
   });
 
   it('isAuthenticated returns true after handleAuthCallback', () => {
     service.handleAuthCallback('some-token');
     const req = httpMock.expectOne('/api/auth/me');
     req.flush({id: 1, email: 'a@b.com', name: 'Test', profilePictureUrl: ''});
-    expect(service.isAuthenticated()).toBeTrue();
+    expect(service.isAuthenticated()).toBe(true);
   });
 
   it('getToken returns stored token', () => {
@@ -54,11 +54,13 @@ describe('AuthService', () => {
     httpMock.expectOne('/api/auth/me').flush({id: 1, email: 'a@b.com', name: 'Test', profilePictureUrl: ''});
 
     service.logout();
-    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.isAuthenticated()).toBe(false);
     expect(service.getToken()).toBeNull();
 
     let user: User | null = null;
-    service.currentUser$.subscribe(u => (user = u));
+    service.currentUser$.subscribe(u => {
+      user = u;
+    });
     expect(user).toBeNull();
   });
 
@@ -67,9 +69,9 @@ describe('AuthService', () => {
     const req = httpMock.expectOne('/api/auth/me');
     req.flush({id: 42, email: 'user@test.com', name: 'User', profilePictureUrl: 'pic.jpg'});
 
-    let user: User | null = null;
-    service.currentUser$.subscribe(u => (user = u));
-    expect(user?.email).toBe('user@test.com');
+    service.currentUser$.subscribe(u => {
+      expect(u?.email).toBe('user@test.com');
+    });
   });
 
   it('currentUser$ null and logout called on auth/me error', () => {
@@ -77,6 +79,6 @@ describe('AuthService', () => {
     const req = httpMock.expectOne('/api/auth/me');
     req.flush('Unauthorized', {status: 401, statusText: 'Unauthorized'});
 
-    expect(service.isAuthenticated()).toBeFalse();
+    expect(service.isAuthenticated()).toBe(false);
   });
 });
