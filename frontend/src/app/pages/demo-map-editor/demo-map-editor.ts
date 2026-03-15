@@ -172,6 +172,9 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   startCreateVariable(): void {
   }
 
+  startCreateVariableAdmin(): void {
+  }
+
   startEditVariable(_variable: MapVariable): void {
   }
 
