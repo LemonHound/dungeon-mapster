@@ -61,7 +61,7 @@ steps:
             -H "Content-Type: application/json" \
             -d "{\"ref\":\"$COMMIT_SHA\",\"environment\":\"production\",\"auto_merge\":false,\"required_contexts\":[]}" \
             | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/${DEPLOY_ID}/statuses" \
+          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"state":"failure","description":"Integration tests failed"}'
@@ -137,7 +137,7 @@ steps:
         DEPLOY_ID=$(cat /workspace/deploy-id)
 
         post_status() {
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/${DEPLOY_ID}/statuses" \
+          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$1"
