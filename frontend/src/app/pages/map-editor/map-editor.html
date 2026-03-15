@@ -273,7 +273,7 @@
             @if (notesAccordion['mapShared']) {
               <div class="accordion-body">
                 <textarea class="flyout-textarea note-textarea"
-                          [value]="mapNoteBundle?.sharedContent ?? ''"
+                          [value]="mapNoteBundle.sharedContent ?? ''"
                           (input)="onMapNoteChange('shared', $any($event.target).value)"
                           placeholder="Shared note visible to all members..."
                           rows="4"></textarea>
@@ -373,7 +373,7 @@
                   <div class="member-item" [class.loading]="loadingMemberId === member.userId">
                     <div class="member-info">
                       @if (memberUsers.get(member.userId)?.profilePictureUrl) {
-                        <img [src]="memberUsers.get(member.userId)?.profilePictureUrl" class="member-avatar" alt="avatar"/>
+                        <img [src]="memberUsers.get(member.userId)!.profilePictureUrl" class="member-avatar" alt="avatar"/>
                       } @else {
                         <div class="member-avatar-placeholder"
                              [style.background]="getMemberBgColor(member.userId)"
