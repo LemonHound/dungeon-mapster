@@ -2,41 +2,47 @@ name: CI
 
 on:
   pull_request:
-    branches: [ main ]
-  push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
-      - name: Build with Maven
+          distribution: temurin
+          cache: maven
+      - name: Run unit tests
         working-directory: ./backend
-        run: mvn clean install -DskipTests
-      - name: Run tests
-        working-directory: ./backend
-        run: mvn test
+        env:
+          JWT_SECRET: ci-test-secret-at-least-32-bytes-long-for-hmac256
+          GOOGLE_CLIENT_ID: ci-placeholder
+          GOOGLE_CLIENT_SECRET: ci-placeholder
+          GCS_BUCKET_NAME: ci-placeholder
+        run: mvn test -q
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Node v24
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         working-directory: ./frontend
         run: npm ci
       - name: Lint
         working-directory: ./frontend
         run: npm run lint
+      - name: Unit tests
+        working-directory: ./frontend
+        run: npm test -- --watch false
       - name: Build
         working-directory: ./frontend
         run: npm run build

@@ -1,0 +1,127 @@
+package org.dungeonmaps.integration;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.dungeonmaps.model.DungeonMap;
+import org.dungeonmaps.model.User;
+import org.dungeonmaps.repository.DungeonMapRepository;
+import org.dungeonmaps.repository.MapMembershipRepository;
+import org.dungeonmaps.repository.UserRepository;
+import org.dungeonmaps.security.JwtTokenProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+class DungeonMapControllerIT extends IntegrationTestBase {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private DungeonMapRepository mapRepository;
+
+    @Autowired
+    private MapMembershipRepository membershipRepository;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String token;
+    private Long userId;
+
+    @BeforeEach
+    void setUp() {
+        membershipRepository.deleteAll();
+        mapRepository.deleteAll();
+        userRepository.deleteAll();
+
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setName("Test User");
+        user.setGoogleId("google-id-123");
+        User saved = userRepository.save(user);
+        userId = saved.getId();
+        token = jwtTokenProvider.generateToken(userId, "test@example.com");
+    }
+
+    @Test
+    void createMap_returnsCreatedMap() throws Exception {
+        Map<String, Object> body = Map.of("name", "My Test Map", "gridType", "square", "gridSize", 40);
+
+        mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("My Test Map"))
+                .andExpect(jsonPath("$.joinCode").isNotEmpty());
+    }
+
+    @Test
+    void getMaps_returnsUserMaps() throws Exception {
+        mockMvc.perform(post("/api/maps")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("name", "Map A", "gridType", "square", "gridSize", 40))));
+
+        mockMvc.perform(get("/api/maps")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Map A"));
+    }
+
+    @Test
+    void deleteMap_removesMap() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "To Delete", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+
+        mockMvc.perform(delete("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(mapRepository.findById(mapId)).isEmpty();
+    }
+
+    @Test
+    void patchMap_updatesField() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Original", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+
+        mockMvc.perform(patch("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("field", "name", "value", "Renamed"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed"));
+    }
+
+    @Test
+    void getMap_withoutAuth_returns401() throws Exception {
+        mockMvc.perform(get("/api/maps"))
+                .andExpect(status().isUnauthorized());
+    }
+}
