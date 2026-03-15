@@ -86,7 +86,7 @@ steps:
           --platform=managed \
           --image="$$IMAGE" \
           --region=${_DEPLOY_REGION} \
-          --update-env-vars="^@^SPRING_PROFILES_ACTIVE=prod,test-cloud" \
+          --update-env-vars="DB_NAME=dungeonmapster_test" \
           --quiet
 
   # Create GitHub deployment record (returns ID used for all subsequent status updates)
