@@ -28,9 +28,51 @@ h1 {
 }
 
 nav {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
+  gap: 4px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-btn {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.header-btn:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.4);
+  color: white;
+}
+
+.header-btn-admin.active {
+  border-color: #f0883e;
+  color: #f0883e;
+  background: rgba(240,136,62,0.15);
+}
+
+.header-btn .btn-label {
+  font-size: 12px;
 }
 
 nav a {
@@ -49,14 +91,6 @@ nav a.active {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-.auth-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: 20px;
-  padding-left: 20px;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
-}
 
 .user-name {
   font-size: 14px;

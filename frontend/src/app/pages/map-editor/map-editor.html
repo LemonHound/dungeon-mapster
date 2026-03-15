@@ -40,415 +40,375 @@
         <p>Upload a map image to get started</p>
       </div>
     }
-  </div>
-  @if (canEdit()) {
-    <div class="control-panel-container" id="control-panel-container">
-      <div class="tab-buttons" id="tab-buttons" data-testid="tab-buttons">
-        <button
-          (click)="setActiveTab('map-details')"
-          [class.active]="activeTab === 'map-details'"
-          class="vertical-tab-btn"
-          data-testid="tab-map-details">
-          Map Details
-        </button>
-        <button
-          (click)="setActiveTab('grid')"
-          [class.active]="activeTab === 'grid'"
-          class="vertical-tab-btn"
-          data-testid="tab-grid">
-          Grid
-        </button>
-        <button
-          (click)="setActiveTab('variables')"
-          [class.active]="activeTab === 'variables'"
-          class="vertical-tab-btn"
-          data-testid="tab-variables">
-          Variables
-        </button>
-        @if (isOwner() || userRole === 'DM') {
-          <button
-            (click)="setActiveTab('members')"
-            [class.active]="activeTab === 'members'"
-            class="vertical-tab-btn"
-            data-testid="tab-members">
-            Members
-          </button>
-        }
-        <button
-          (click)="setActiveTab('actions')"
-          [class.active]="activeTab === 'actions'"
-          class="vertical-tab-btn"
-          data-testid="tab-actions">
-          Actions
-        </button>
+    @if (tintColorableVariables().length > 0) {
+      <div class="tint-selector-float">
+        <span class="tint-label">Tint:</span>
+        <select class="tint-select" [ngModel]="activeTintVariableId" (ngModelChange)="setActiveTint($event)">
+          <option [ngValue]="null">None</option>
+          @for (v of tintColorableVariables(); track v.id) {
+            <option [ngValue]="v.id">{{ v.name }}</option>
+          }
+        </select>
       </div>
+    }
+  </div>
 
-      <div class="control-panel"
-           id="control-panel"
-           [class.expanded]="isPanelExpanded"
-           data-testid="control-panel">
-        @if (tintColorableVariables().length > 0) {
-          <div class="tint-selector">
-            <span>Cell tint:</span>
-            <select class="map-name-input" [ngModel]="activeTintVariableId"
-                    (ngModelChange)="setActiveTint($event)">
-              <option [ngValue]="null">None</option>
-              @for (v of tintColorableVariables(); track v.id) {
-                <option [ngValue]="v.id">{{ v.name }}</option>
+  @if (canEdit()) {
+    <button
+      class="notes-fab"
+      [class.panel-open]="activePanel !== null"
+      (click)="handleNotesFab()"
+      title="Notes">
+      ✏
+    </button>
+
+    <div class="flyout-panel flyout-cell" [class.open]="activePanel === 'cell'">
+      <div class="flyout-header">
+        <div class="flyout-header-left">
+          <div class="cell-badge">{{ getCellLabel() }}</div>
+          <span class="flyout-title">Cell</span>
+        </div>
+        <button class="flyout-close" (click)="closePanel()">&#x2715;</button>
+      </div>
+      <div class="flyout-body">
+        @if (selectedCell) {
+          <div class="flyout-section">
+            <span class="flyout-field-label">Cell Name</span>
+            <input
+              type="text"
+              class="flyout-input"
+              [(ngModel)]="selectedCellName"
+              (input)="onCellNameChange()"
+              [class.remote-focus]="remoteFieldFocus !== null"
+              [style.border-color]="remoteFieldFocus ? remoteFieldFocus.color : null"
+              placeholder="Enter cell name"/>
+          </div>
+
+          @if (variables.length > 0) {
+            <div class="flyout-section">
+              <span class="flyout-field-label">Variables</span>
+              <div class="cell-variables">
+                @for (variable of variables; track variable.id) {
+                  <div class="cell-variable-field">
+                    <span class="cell-variable-label">{{ variable.name }}</span>
+                    @if (variable.dataType === 'TEXT') {
+                      <input type="text"
+                             class="flyout-input"
+                             [value]="getCellVariableValue(variable.id)"
+                             (input)="onCellVariableChange(variable, $any($event.target).value)"
+                             [disabled]="!canEditVariable(variable)"
+                             [class.readonly-field]="!canEditVariable(variable)"
+                             placeholder=""/>
+                    }
+                    @if (variable.dataType === 'TEXTAREA') {
+                      <textarea class="flyout-textarea"
+                                [value]="getCellVariableValue(variable.id)"
+                                (input)="onCellVariableChange(variable, $any($event.target).value)"
+                                [disabled]="!canEditVariable(variable)"
+                                [class.readonly-field]="!canEditVariable(variable)"
+                                rows="3"></textarea>
+                    }
+                    @if (variable.dataType === 'DATE') {
+                      <input type="date"
+                             class="flyout-input"
+                             [value]="getCellVariableValue(variable.id)"
+                             (input)="onCellVariableChange(variable, $any($event.target).value)"
+                             [disabled]="!canEditVariable(variable)"
+                             [class.readonly-field]="!canEditVariable(variable)"/>
+                    }
+                    @if (variable.dataType === 'NUMERIC') {
+                      <div class="numeric-field">
+                        <input type="number"
+                               class="flyout-input"
+                               [value]="getCellVariableValue(variable.id)"
+                               (input)="onCellVariableChange(variable, $any($event.target).value)"
+                               [disabled]="!canEditVariable(variable)"
+                               [class.readonly-field]="!canEditVariable(variable)"
+                               [step]="variable.displayFormat === 'FLOAT' ? '0.01' : '1'"/>
+                        @if (variable.displayFormat === 'PERCENTAGE') {
+                          <span class="numeric-suffix">%</span>
+                        }
+                      </div>
+                    }
+                    @if (variable.dataType === 'PICKLIST') {
+                      @if (canEditVariable(variable)) {
+                        <select class="flyout-input"
+                                [ngModel]="getCellVariableValue(variable.id)"
+                                (ngModelChange)="onCellVariableChange(variable, $event)">
+                          <option value="">— none —</option>
+                          @for (pv of variable.picklistValues ?? []; track pv.id) {
+                            <option [value]="pv.id">{{ pv.label }}</option>
+                          }
+                        </select>
+                      } @else {
+                        <div class="picklist-readonly">
+                          @if (getCellVariableValue(variable.id)) {
+                            <span class="picklist-swatch"
+                                  [style.background]="getPicklistColor(variable, getCellVariableValue(variable.id))"></span>
+                            {{ getPicklistLabel(variable, getCellVariableValue(variable.id)) }}
+                          } @else {
+                            <span class="cell-info">—</span>
+                          }
+                        </div>
+                      }
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <div class="flyout-section">
+            <div class="note-tabs">
+              <button class="note-tab" [class.active]="cellNoteTab === 'shared'" (click)="cellNoteTab = 'shared'">Shared</button>
+              <button class="note-tab" [class.active]="cellNoteTab === 'public'" (click)="cellNoteTab = 'public'">Player Notes</button>
+              <button class="note-tab" [class.active]="cellNoteTab === 'private'" (click)="cellNoteTab = 'private'">Private</button>
+            </div>
+            @if (cellNoteTab === 'shared') {
+              <textarea class="flyout-textarea note-textarea"
+                        [value]="cellNoteBundle?.sharedContent ?? ''"
+                        (input)="onCellNoteChange('shared', $any($event.target).value)"
+                        placeholder="Shared note visible to all members..."
+                        rows="5"></textarea>
+            }
+            @if (cellNoteTab === 'public') {
+              <textarea class="flyout-textarea note-textarea"
+                        [value]="cellNoteBundle?.myPublicContent ?? ''"
+                        (input)="onCellNoteChange('public', $any($event.target).value)"
+                        placeholder="Your public note, visible to all..."
+                        rows="5"></textarea>
+              @if (cellNoteBundle?.othersPublic && cellNoteBundle!.othersPublic.length > 0) {
+                <div class="others-notes">
+                  <span class="others-notes-label">Others' notes:</span>
+                  @for (note of cellNoteBundle!.othersPublic; track note.userId) {
+                    <div class="other-note-item">
+                      <span class="other-note-avatar" [style.background]="getMemberBgColor(note.userId)" [style.color]="getMemberFgColor(note.userId)">{{ getMemberInitials(note.userId) }}</span>
+                      <span class="other-note-content">{{ note.content }}</span>
+                    </div>
+                  }
+                </div>
               }
-            </select>
+            }
+            @if (cellNoteTab === 'private') {
+              <textarea class="flyout-textarea note-textarea"
+                        [value]="cellNoteBundle?.myPrivateContent ?? ''"
+                        (input)="onCellNoteChange('private', $any($event.target).value)"
+                        placeholder="Your private note, only visible to you..."
+                        rows="5"></textarea>
+            }
+          </div>
+        } @else {
+          <div class="flyout-empty">
+            <p>Tap a cell on the map to view and edit its details.</p>
           </div>
         }
-        <div class="tab-content" id="tab-content">
-          @if (activeTab === 'map-details') {
-            <div class="control-section">
-              <h4>Map Image</h4>
+      </div>
+    </div>
+
+    <div class="flyout-panel flyout-notes" [class.open]="activePanel === 'notes'">
+      <div class="flyout-header">
+        <div class="flyout-header-left">
+          <span class="flyout-title">Notes</span>
+        </div>
+        <button class="flyout-close" (click)="closePanel()">&#x2715;</button>
+      </div>
+      <div class="flyout-body">
+        <div class="accordion-section">
+          <button class="accordion-header" (click)="toggleAccordion('mapPublic')">
+            <span>My Public Note</span>
+            <span class="accordion-arrow" [class.open]="notesAccordion['mapPublic']">&#x276F;</span>
+          </button>
+          @if (notesAccordion['mapPublic']) {
+            <div class="accordion-body">
+              <textarea class="flyout-textarea note-textarea"
+                        [value]="mapNoteBundle?.myPublicContent ?? ''"
+                        (input)="onMapNoteChange('public', $any($event.target).value)"
+                        placeholder="Your public note for this map, visible to all members..."
+                        rows="4"></textarea>
+            </div>
+          }
+        </div>
+
+        <div class="accordion-section">
+          <button class="accordion-header" (click)="toggleAccordion('mapPrivate')">
+            <span>My Private Note</span>
+            <span class="accordion-arrow" [class.open]="notesAccordion['mapPrivate']">&#x276F;</span>
+          </button>
+          @if (notesAccordion['mapPrivate']) {
+            <div class="accordion-body">
+              <textarea class="flyout-textarea note-textarea"
+                        [value]="mapNoteBundle?.myPrivateContent ?? ''"
+                        (input)="onMapNoteChange('private', $any($event.target).value)"
+                        placeholder="Your private note, only visible to you..."
+                        rows="4"></textarea>
+            </div>
+          }
+        </div>
+
+        @if (mapNoteBundle?.othersPublic && mapNoteBundle!.othersPublic.length > 0) {
+          <div class="accordion-section">
+            <button class="accordion-header" (click)="toggleAccordion('othersPublic')">
+              <span>Others' Notes</span>
+              <span class="accordion-arrow" [class.open]="notesAccordion['othersPublic']">&#x276F;</span>
+            </button>
+            @if (notesAccordion['othersPublic']) {
+              <div class="accordion-body">
+                @for (note of mapNoteBundle!.othersPublic; track note.userId) {
+                  <div class="other-note-item">
+                    <span class="other-note-avatar" [style.background]="getMemberBgColor(note.userId)" [style.color]="getMemberFgColor(note.userId)">{{ getMemberInitials(note.userId) }}</span>
+                    <span class="other-note-content">{{ note.content }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        @if (isDmOrOwner() && mapNoteBundle !== null) {
+          <div class="accordion-section">
+            <button class="accordion-header" (click)="toggleAccordion('mapShared')">
+              <span>Shared Note (DM)</span>
+              <span class="accordion-arrow" [class.open]="notesAccordion['mapShared']">&#x276F;</span>
+            </button>
+            @if (notesAccordion['mapShared']) {
+              <div class="accordion-body">
+                <textarea class="flyout-textarea note-textarea"
+                          [value]="mapNoteBundle.sharedContent ?? ''"
+                          (input)="onMapNoteChange('shared', $any($event.target).value)"
+                          placeholder="Shared note visible to all members..."
+                          rows="4"></textarea>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (isDmOrOwner()) {
+      <div class="flyout-panel flyout-admin" [class.open]="activePanel === 'admin'">
+        <div class="flyout-header flyout-header-admin">
+          <div class="flyout-header-left">
+            <span class="flyout-title">DM Admin</span>
+          </div>
+          <button class="flyout-close" (click)="closePanel()">&#x2715;</button>
+        </div>
+        <div class="flyout-tabs">
+          <button class="flyout-tab" [class.active]="adminTab === 'map'" (click)="adminTab = 'map'">Map</button>
+          <button class="flyout-tab" [class.active]="adminTab === 'members'" (click)="adminTab = 'members'">Members</button>
+          <button class="flyout-tab" [class.active]="adminTab === 'variables'" (click)="adminTab = 'variables'">Variables</button>
+        </div>
+        <div class="flyout-body">
+
+          @if (adminTab === 'map') {
+            <div class="flyout-section">
+              <span class="flyout-field-label">Map Name</span>
+              <input type="text" class="flyout-input" [(ngModel)]="mapData.name" (input)="onMapNameChange()" placeholder="Map name"/>
+            </div>
+
+            <div class="flyout-section">
+              <span class="flyout-field-label">Map Image</span>
               <label class="file-upload-label">
                 <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;"/>
                 <span class="upload-button">Upload Image</span>
               </label>
               @if (mapData.imageUrl) {
-                <p class="image-status">✓ Image uploaded</p>
+                <p class="field-hint">Image uploaded</p>
               }
             </div>
 
-            <div class="control-section">
-              <h4>Map Name</h4>
-              <input type="text" [(ngModel)]="mapData.name" (input)="onMapNameChange()" class="map-name-input"/>
-            </div>
-
             @if (mapData.joinCode) {
-              <div class="control-section">
-                <h4>Join Code</h4>
-                <div class="join-code-display">
-                  <code>{{ mapData.joinCode }}</code>
+              <div class="flyout-section">
+                <span class="flyout-field-label">Join Code</span>
+                <div class="join-code-row">
+                  <code class="join-code-value">{{ mapData.joinCode }}</code>
                   <button (click)="copyJoinCode()" class="copy-btn">Copy</button>
                 </div>
-                <div class="join-url-display">
-                  <input type="text" [value]="getJoinUrl()" readonly class="join-url-input"/>
+                <div class="join-url-row">
+                  <input type="text" [value]="getJoinUrl()" readonly class="flyout-input join-url-input"/>
                   <button (click)="copyJoinUrl()" class="copy-btn">Copy URL</button>
                 </div>
               </div>
             }
-          }
-          @if (activeTab === 'grid') {
-            <div class="control-section" id="grid-settings-section" data-testid="grid-settings">
-              <h4>Grid Settings</h4>
-              <div class="grid-type-selector" data-testid="grid-type-selector">
-                <button
-                  (click)="setGridType('square')"
-                  [class.active]="gridType === 'square'"
-                  class="grid-type-btn"
-                  data-testid="grid-type-square">
-                  Square
-                </button>
-                <button
-                  (click)="setGridType('hex')"
-                  [class.active]="gridType === 'hex'"
-                  class="grid-type-btn"
-                  data-testid="grid-type-hex">
-                  Hex
-                </button>
-              </div>
 
-              @if (gridType === 'hex') {
-                <div class="hex-orientation-selector">
-                  <button
-                    (click)="setHexOrientation('flat')"
-                    [class.active]="hexOrientation === 'flat'"
-                    class="grid-type-btn">
-                    Flat
-                  </button>
-                  <button
-                    (click)="setHexOrientation('pointy')"
-                    [class.active]="hexOrientation === 'pointy'"
-                    class="grid-type-btn">
-                    Pointy
-                  </button>
+            <div class="flyout-section">
+              <span class="flyout-field-label">Grid Type</span>
+              <div class="grid-type-selector">
+                <button class="grid-type-btn" [class.active]="gridType === 'square'" (click)="setGridType('square')">Square</button>
+                <button class="grid-type-btn" [class.active]="gridType === 'hex'" (click)="setGridType('hex')">Hex</button>
+              </div>
+            </div>
+
+            @if (gridType === 'hex') {
+              <div class="flyout-section">
+                <span class="flyout-field-label">Hex Orientation</span>
+                <div class="grid-type-selector">
+                  <button class="grid-type-btn" [class.active]="hexOrientation === 'flat'" (click)="setHexOrientation('flat')">Flat</button>
+                  <button class="grid-type-btn" [class.active]="hexOrientation === 'pointy'" (click)="setHexOrientation('pointy')">Pointy</button>
                 </div>
-              }
+              </div>
+            }
 
-              <button
-                (click)="toggleGridLock()"
-                [class.active]="!gridLocked"
-                data-testid="toggle-grid-lock">
-                {{ gridLocked ? 'Unlock Grid' : 'Lock Grid' }}
-              </button>
-
-              <div class="grid-controls" [class.disabled]="gridLocked" data-testid="grid-controls">
-                <label>
-                  Grid Size:
-                  <input type="number" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10"
-                         max="200" data-testid="grid-size-input"/>
-                </label>
+            <div class="flyout-section">
+              <span class="flyout-field-label">Grid Size</span>
+              <div class="grid-size-row">
+                <input type="number" class="flyout-input" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10" max="200"/>
+                <button class="grid-lock-btn" [class.active]="!gridLocked" (click)="toggleGridLock()">
+                  {{ gridLocked ? 'Locked' : 'Unlocked' }}
+                </button>
               </div>
             </div>
-          }
-          <!-- Replace the @if (activeTab === 'variables') block in map-editor.html with this -->
 
-          @if (activeTab === 'variables') {
-            <div class="control-section">
-              <h4>Cell Variables</h4>
-
-              @if (isDmOrOwner()) {
-                @if (!manageVariablesOpen) {
-                  <button class="manage-variables-btn" (click)="openManageVariables()">Manage Variables</button>
-                } @else {
-                  <div class="manage-variables-panel">
-                    <div class="manage-variables-header">
-                      <span class="manage-variables-title">Manage Variables</span>
-                      <button class="close-btn" (click)="closeManageVariables()">&#x2715;</button>
-                    </div>
-
-                    @if (variableForm) {
-                      <div class="variable-form">
-                        <label>
-                          Name
-                          <input type="text" [(ngModel)]="variableForm.name" class="map-name-input"
-                                 placeholder="Variable name"/>
-                        </label>
-                        <label>
-                          Type
-                          <select [(ngModel)]="variableForm.dataType" class="map-name-input"
-                                  [disabled]="!!editingVariableId">
-                            <option value="TEXT">Text</option>
-                            <option value="TEXTAREA">Text Area</option>
-                            <option value="DATE">Date</option>
-                            <option value="NUMERIC">Numeric</option>
-                            <option value="PICKLIST">Picklist</option>
-                          </select>
-                        </label>
-                        @if (variableForm.dataType === 'NUMERIC') {
-                          <label>
-                            Format
-                            <select [(ngModel)]="variableForm.displayFormat" class="map-name-input">
-                              <option value="INTEGER">Integer</option>
-                              <option value="FLOAT">Float</option>
-                              <option value="PERCENTAGE">Percentage</option>
-                            </select>
-                          </label>
-                        }
-                        <label>
-                          Visibility
-                          <select [(ngModel)]="variableForm.visibility" class="map-name-input">
-                            <option value="PLAYER_EDIT">Players can edit</option>
-                            <option value="PLAYER_READ">Players read only</option>
-                            <option value="DM_ONLY">DM only</option>
-                          </select>
-                        </label>
-                        @if (variableForm.dataType === 'PICKLIST') {
-                          <label class="checkbox-label">
-                            <input type="checkbox" [(ngModel)]="variableForm.showColorOnCells"/>
-                            Show color on cells
-                          </label>
-                        }
-                        <div class="form-actions">
-                          <button class="save-btn" (click)="saveVariable()">Save</button>
-                          <button class="cancel-btn" (click)="cancelVariableForm()">Cancel</button>
-                        </div>
-
-                        @if (variableForm.dataType === 'PICKLIST') {
-                          <div class="picklist-section">
-                            <h5>Picklist Values</h5>
-                            @if (editingVariableId && editingVariable) {
-                              @for (pv of editingVariable.picklistValues ?? []; track pv.id) {
-                                <div class="picklist-item">
-                                  <span class="picklist-swatch" [style.background]="pv.color"></span>
-                                  <span class="picklist-label">{{ pv.label }}</span>
-                                  <button class="delete-small-btn" (click)="deletePicklistValueFromForm(pv.id)">
-                                    &#x2715;
-                                  </button>
-                                </div>
-                              }
-                              <div class="picklist-add">
-                                <input type="text" [(ngModel)]="newPicklistLabel" class="map-name-input"
-                                       placeholder="New value label"
-                                       (keyup.enter)="addPicklistValue()"/>
-                                <button class="save-btn" (click)="addPicklistValue()">Add</button>
-                              </div>
-                            } @else {
-                              <p class="cell-info">Save the variable first to add values.</p>
-                            }
-                          </div>
-                        }
-                      </div>
-                    } @else {
-                      <div class="variable-list">
-                        @if (variables.length === 0) {
-                          <p class="cell-info">No variables defined yet.</p>
-                        }
-                        @for (variable of variables; track variable.id) {
-                          <div class="variable-list-item">
-                            <span class="variable-list-name">{{ variable.name }}</span>
-                            <span class="variable-list-type">{{ variable.dataType }}</span>
-                            <div class="variable-list-actions">
-                              <button class="edit-btn" (click)="startEditVariable(variable)">Edit</button>
-                              <button class="delete-btn" (click)="confirmDeleteVariable(variable)">Delete</button>
-                            </div>
-                          </div>
-                        }
-                        <button class="manage-variables-btn" style="margin-top: 10px" (click)="startCreateVariable()">+
-                          Create Variable
-                        </button>
-                      </div>
-                    }
-                  </div>
-                }
-              }
-
-              @if (selectedCell) {
-                <p class="cell-info">Selected: Row {{ selectedCell.row }}, Col {{ selectedCell.col }}</p>
-                <label>
-                  Cell Name:
-                  <input
-                    type="text"
-                    [(ngModel)]="selectedCellName"
-                    (input)="onCellNameChange()"
-                    class="map-name-input"
-                    [class.remote-focus]="remoteFieldFocus !== null"
-                    [style.border-color]="remoteFieldFocus ? remoteFieldFocus.color : null"
-                    placeholder="Enter cell name"/>
-                </label>
-
-                @if (variables.length > 0) {
-                  <div class="cell-variables">
-                    @for (variable of variables; track variable.id) {
-                      <div class="cell-variable-field">
-                        <span class="cell-variable-label">{{ variable.name }}</span>
-                        @if (variable.dataType === 'TEXT') {
-                          <input type="text"
-                                 class="map-name-input"
-                                 [value]="getCellVariableValue(variable.id)"
-                                 (input)="onCellVariableChange(variable, $any($event.target).value)"
-                                 [disabled]="!canEditVariable(variable)"
-                                 [class.readonly-field]="!canEditVariable(variable)"
-                                 placeholder=""/>
-                        }
-                        @if (variable.dataType === 'TEXTAREA') {
-                          <textarea class="variable-textarea"
-                                    [value]="getCellVariableValue(variable.id)"
-                                    (input)="onCellVariableChange(variable, $any($event.target).value)"
-                                    [disabled]="!canEditVariable(variable)"
-                                    [class.readonly-field]="!canEditVariable(variable)"
-                                    rows="3"></textarea>
-                        }
-                        @if (variable.dataType === 'DATE') {
-                          <input type="date"
-                                 class="map-name-input"
-                                 [value]="getCellVariableValue(variable.id)"
-                                 (input)="onCellVariableChange(variable, $any($event.target).value)"
-                                 [disabled]="!canEditVariable(variable)"
-                                 [class.readonly-field]="!canEditVariable(variable)"/>
-                        }
-                        @if (variable.dataType === 'NUMERIC') {
-                          <div class="numeric-field">
-                            <input type="number"
-                                   class="map-name-input"
-                                   [value]="getCellVariableValue(variable.id)"
-                                   (input)="onCellVariableChange(variable, $any($event.target).value)"
-                                   [disabled]="!canEditVariable(variable)"
-                                   [class.readonly-field]="!canEditVariable(variable)"
-                                   [step]="variable.displayFormat === 'FLOAT' ? '0.01' : '1'"/>
-                            @if (variable.displayFormat === 'PERCENTAGE') {
-                              <span class="numeric-suffix">%</span>
-                            }
-                          </div>
-                        }
-                        @if (variable.dataType === 'PICKLIST') {
-                          @if (canEditVariable(variable)) {
-                            <select class="map-name-input"
-                                    [ngModel]="getCellVariableValue(variable.id)"
-                                    (ngModelChange)="onCellVariableChange(variable, $event)">
-                              <option value="">— none —</option>
-                              @for (pv of variable.picklistValues ?? []; track pv.id) {
-                                <option [value]="pv.id">{{ pv.label }}</option>
-                              }
-                            </select>
-                          } @else {
-                            <div class="picklist-readonly">
-                              @if (getCellVariableValue(variable.id)) {
-                                <span class="picklist-swatch"
-                                      [style.background]="getPicklistColor(variable, getCellVariableValue(variable.id))"></span>
-                                {{ getPicklistLabel(variable, getCellVariableValue(variable.id)) }}
-                              } @else {
-                                <span class="cell-info">—</span>
-                              }
-                            </div>
-                          }
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-              } @else {
-                <p class="cell-info">Click a grid cell to edit its variables.</p>
-                @if (variables.length === 0 && !isDmOrOwner()) {
-                  <p class="cell-info">No variables have been defined for this map.</p>
-                }
-              }
+            <div class="flyout-section">
+              <label class="flyout-toggle-label">
+                <span>Show Grid</span>
+                <input type="checkbox" class="flyout-toggle" [(ngModel)]="showGrid" (ngModelChange)="toggleShowGrid()"/>
+              </label>
             </div>
           }
-          @if (activeTab === 'members') {
-            <div class="control-section">
-              <h4>Members</h4>
+
+          @if (adminTab === 'members') {
+            <div class="flyout-section">
               <div class="members-list">
                 @for (member of members; track member.id) {
                   <div class="member-item" [class.loading]="loadingMemberId === member.userId">
                     <div class="member-info">
                       @if (memberUsers.get(member.userId)?.profilePictureUrl) {
-                        <img [src]="memberUsers.get(member.userId)?.profilePictureUrl" class="member-avatar"
-                             alt="avatar"/>
+                        <img [src]="memberUsers.get(member.userId)!.profilePictureUrl" class="member-avatar" alt="avatar"/>
+                      } @else {
+                        <div class="member-avatar-placeholder"
+                             [style.background]="getMemberBgColor(member.userId)"
+                             [style.color]="getMemberFgColor(member.userId)">
+                          {{ getMemberInitials(member.userId) }}
+                        </div>
                       }
                       <div class="member-details">
-                        <span
-                          class="member-name">{{ memberUsers.get(member.userId)?.name || 'User ' + member.userId }}</span>
-                        <span class="member-id">ID: {{ member.userId }}</span>
+                        <span class="member-name">{{ getMemberName(member.userId) }}</span>
+                        <div class="member-meta">
+                          <span class="member-role-badge"
+                                [class.role-owner]="member.role === 'OWNER'"
+                                [class.role-dm]="member.role === 'DM'"
+                                [class.role-player]="member.role === 'PLAYER'">
+                            {{ member.role }}
+                          </span>
+                          @if (isUserOnline(member.userId)) {
+                            <span class="member-online-dot"></span>
+                          }
+                        </div>
                       </div>
-                      <span class="member-role-badge"
-                            [class.role-owner]="member.role === 'OWNER'"
-                            [class.role-dm]="member.role === 'DM'"
-                            [class.role-player]="member.role === 'PLAYER'">
-                        {{ member.role }}
-                      </span>
                     </div>
                     <div class="member-actions">
                       @if (isOwner() && member.userId !== getCurrentUserId()) {
                         @if (member.role === 'PLAYER') {
-                          <button
-                            (click)="promoteMember(member.userId)"
-                            class="action-btn promote-btn"
-                            [disabled]="loadingMemberId === member.userId">
-                            Promote
-                          </button>
+                          <button (click)="promoteMember(member.userId)" class="action-btn promote-btn" [disabled]="loadingMemberId === member.userId">Promote</button>
                         }
                         @if (member.role === 'DM') {
-                          <button
-                            (click)="demoteMember(member.userId)"
-                            class="action-btn demote-btn"
-                            [disabled]="loadingMemberId === member.userId">
-                            Demote
-                          </button>
-                          <button
-                            (click)="transferOwnership(member.userId)"
-                            class="action-btn transfer-btn"
-                            [disabled]="loadingMemberId === member.userId">
-                            Make Owner
-                          </button>
+                          <button (click)="demoteMember(member.userId)" class="action-btn demote-btn" [disabled]="loadingMemberId === member.userId">Demote</button>
+                          <button (click)="transferOwnership(member.userId)" class="action-btn transfer-btn" [disabled]="loadingMemberId === member.userId">Make Owner</button>
                         }
-                        <button
-                          (click)="removeMember(member.userId)"
-                          class="action-btn remove-btn"
-                          [disabled]="loadingMemberId === member.userId">
-                          Remove
-                        </button>
+                        <button (click)="removeMember(member.userId)" class="action-btn remove-btn" [disabled]="loadingMemberId === member.userId">Remove</button>
                       }
                       @if (!isOwner() && userRole === 'DM' && member.userId !== getCurrentUserId() && member.role === 'PLAYER') {
-                        <button
-                          (click)="promoteMember(member.userId)"
-                          class="action-btn promote-btn"
-                          [disabled]="loadingMemberId === member.userId">
-                          Promote
-                        </button>
+                        <button (click)="promoteMember(member.userId)" class="action-btn promote-btn" [disabled]="loadingMemberId === member.userId">Promote</button>
                       }
                     </div>
                   </div>
@@ -456,14 +416,109 @@
               </div>
             </div>
           }
-          @if (activeTab === 'actions') {
-            <div class="control-section">
-              <h4>Map Actions</h4>
-              <p>Additional actions will go here.</p>
+
+          @if (adminTab === 'variables') {
+            <div class="flyout-section">
+              @if (!manageVariablesOpen) {
+                <button class="manage-variables-btn" (click)="openManageVariables()">Manage Variables</button>
+              } @else {
+                <div class="manage-variables-panel">
+                  <div class="manage-variables-header">
+                    <span class="manage-variables-title">Manage Variables</span>
+                    <button class="close-btn" (click)="closeManageVariables()">&#x2715;</button>
+                  </div>
+
+                  @if (variableForm) {
+                    <div class="variable-form">
+                      <label>
+                        Name
+                        <input type="text" [(ngModel)]="variableForm.name" class="flyout-input" placeholder="Variable name"/>
+                      </label>
+                      <label>
+                        Type
+                        <select [(ngModel)]="variableForm.dataType" class="flyout-input" [disabled]="!!editingVariableId">
+                          <option value="TEXT">Text</option>
+                          <option value="TEXTAREA">Text Area</option>
+                          <option value="DATE">Date</option>
+                          <option value="NUMERIC">Numeric</option>
+                          <option value="PICKLIST">Picklist</option>
+                        </select>
+                      </label>
+                      @if (variableForm.dataType === 'NUMERIC') {
+                        <label>
+                          Format
+                          <select [(ngModel)]="variableForm.displayFormat" class="flyout-input">
+                            <option value="INTEGER">Integer</option>
+                            <option value="FLOAT">Float</option>
+                            <option value="PERCENTAGE">Percentage</option>
+                          </select>
+                        </label>
+                      }
+                      <label>
+                        Visibility
+                        <select [(ngModel)]="variableForm.visibility" class="flyout-input">
+                          <option value="PLAYER_EDIT">Players can edit</option>
+                          <option value="PLAYER_READ">Players read only</option>
+                          <option value="DM_ONLY">DM only</option>
+                        </select>
+                      </label>
+                      @if (variableForm.dataType === 'PICKLIST') {
+                        <label class="checkbox-label">
+                          <input type="checkbox" [(ngModel)]="variableForm.showColorOnCells"/>
+                          Show color on cells
+                        </label>
+                      }
+                      <div class="form-actions">
+                        <button class="save-btn" (click)="saveVariable()">Save</button>
+                        <button class="cancel-btn" (click)="cancelVariableForm()">Cancel</button>
+                      </div>
+
+                      @if (variableForm.dataType === 'PICKLIST') {
+                        <div class="picklist-section">
+                          <h5>Picklist Values</h5>
+                          @if (editingVariableId && editingVariable) {
+                            @for (pv of editingVariable.picklistValues ?? []; track pv.id) {
+                              <div class="picklist-item">
+                                <span class="picklist-swatch" [style.background]="pv.color"></span>
+                                <span class="picklist-label">{{ pv.label }}</span>
+                                <button class="delete-small-btn" (click)="deletePicklistValueFromForm(pv.id)">&#x2715;</button>
+                              </div>
+                            }
+                            <div class="picklist-add">
+                              <input type="text" [(ngModel)]="newPicklistLabel" class="flyout-input" placeholder="New value label" (keyup.enter)="addPicklistValue()"/>
+                              <button class="save-btn" (click)="addPicklistValue()">Add</button>
+                            </div>
+                          } @else {
+                            <p class="cell-info">Save the variable first to add values.</p>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="variable-list">
+                      @if (variables.length === 0) {
+                        <p class="cell-info">No variables defined yet.</p>
+                      }
+                      @for (variable of variables; track variable.id) {
+                        <div class="variable-list-item">
+                          <span class="variable-list-name">{{ variable.name }}</span>
+                          <span class="variable-list-type">{{ variable.dataType }}</span>
+                          <div class="variable-list-actions">
+                            <button class="edit-btn" (click)="startEditVariable(variable)">Edit</button>
+                            <button class="delete-btn" (click)="confirmDeleteVariable(variable)">Delete</button>
+                          </div>
+                        </div>
+                      }
+                      <button class="manage-variables-btn" style="margin-top: 10px" (click)="startCreateVariableAdmin()">+ Create Variable</button>
+                    </div>
+                  }
+                </div>
+              }
             </div>
           }
+
         </div>
       </div>
-    </div>
+    }
   }
 </div>

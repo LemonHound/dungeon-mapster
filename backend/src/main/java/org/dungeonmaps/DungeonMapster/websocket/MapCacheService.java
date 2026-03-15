@@ -274,6 +274,29 @@ public class MapCacheService {
         }
     }
 
+    public void broadcastCellNoteUpdate(Long mapId, Integer row, Integer col,
+                                        String noteType, String content, Long senderId) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "CELL_NOTE_UPDATE");
+        message.put("mapId", mapId);
+        message.put("row", row);
+        message.put("col", col);
+        message.put("noteType", noteType);
+        message.put("content", content != null ? content : "");
+        message.put("userId", senderId);
+        messagingTemplate.convertAndSend("/topic/map/" + mapId, message);
+    }
+
+    public void broadcastMapNoteUpdate(Long mapId, String noteType, String content, Long senderId) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "MAP_NOTE_UPDATE");
+        message.put("mapId", mapId);
+        message.put("noteType", noteType);
+        message.put("content", content != null ? content : "");
+        message.put("userId", senderId);
+        messagingTemplate.convertAndSend("/topic/map/" + mapId, message);
+    }
+
     public void broadcastPresenceJoined(UserSession session) {
         Map<String, Object> message = new HashMap<>();
         message.put("type", "USER_JOINED");

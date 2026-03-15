@@ -61,6 +61,8 @@ export type WsMessage =
   | { type: 'PICKLIST_VALUE_ADDED'; mapId: number; variableId: string; picklistValue: PicklistValue; userId: number }
   | { type: 'PICKLIST_VALUE_UPDATED'; mapId: number; variableId: string; picklistValue: PicklistValue; userId: number }
   | { type: 'PICKLIST_VALUE_DELETED'; mapId: number; variableId: string; picklistValueId: string; userId: number }
+  | { type: 'CELL_NOTE_UPDATE'; mapId: number; row: number; col: number; noteType: 'shared' | 'public'; content: string; userId: number }
+  | { type: 'MAP_NOTE_UPDATE'; mapId: number; noteType: 'shared' | 'public'; content: string; userId: number }
   | {
   type: 'FULL_STATE';
   mapData: unknown;

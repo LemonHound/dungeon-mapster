@@ -9,6 +9,7 @@ import {MapMembership} from '../../services/map';
 import {AuthService, User} from '../../services/auth.service';
 import {UserPresence, SelectionState, FieldFocusState} from '../../models/presence.model';
 import {MapVariable, CellVariableValue} from '../../models/map-variable.model';
+import {NoteBundle} from '../../models/note.model';
 
 type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
 
@@ -55,6 +56,14 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   public activeTab: TabType = 'grid';
   public isPanelExpanded = false;
+
+  public activePanel: 'cell' | 'notes' | 'admin' | null = null;
+  public adminTab: 'map' | 'members' | 'variables' = 'map';
+  public cellNoteTab: 'shared' | 'public' | 'private' = 'shared';
+  public showGrid = true;
+  public notesAccordion: Record<string, boolean> = {};
+  public cellNoteBundle: NoteBundle | null = null;
+  public mapNoteBundle: NoteBundle | null = null;
 
   public imageLoading = false;
   public noImagePrompt = false;
@@ -170,6 +179,71 @@ export class DemoMapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   startCreateVariable(): void {
+  }
+
+  startCreateVariableAdmin(): void {
+  }
+
+  closePanel(): void {
+    this.activePanel = null;
+  }
+
+  handleNotesFab(): void {
+    this.activePanel = this.activePanel === 'notes' ? null : 'notes';
+  }
+
+  toggleAdminPanel(): void {
+    this.activePanel = this.activePanel === 'admin' ? null : 'admin';
+  }
+
+  toggleShowGrid(): void {
+    this.render();
+  }
+
+  toggleAccordion(key: string): void {
+    this.notesAccordion[key] = !this.notesAccordion[key];
+  }
+
+  getCellLabel(): string {
+    if (!this.selectedCell) return '—';
+    const col = this.selectedCell.col;
+    const row = this.selectedCell.row + 1;
+    let colLabel = '';
+    let c = col;
+    do {
+      colLabel = String.fromCharCode(65 + (c % 26)) + colLabel;
+      c = Math.floor(c / 26) - 1;
+    } while (c >= 0);
+    return colLabel + row;
+  }
+
+  getMemberName(userId: number): string {
+    return this.memberUsers.get(userId)?.name ?? `User ${userId}`;
+  }
+
+  getMemberInitials(userId: number): string {
+    const name = this.memberUsers.get(userId)?.name;
+    if (!name) return '?';
+    return name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+  }
+
+  getMemberBgColor(userId: number): string {
+    const colors = ['#e74c3c','#3498db','#27ae60','#f39c12','#9b59b6','#1abc9c','#e67e22','#2980b9'];
+    return colors[userId % colors.length];
+  }
+
+  getMemberFgColor(_userId: number): string {
+    return '#ffffff';
+  }
+
+  isUserOnline(userId: number): boolean {
+    return this.connectedUsers.some(u => u.userId === userId);
+  }
+
+  onCellNoteChange(_type: 'shared' | 'public' | 'private', _content: string): void {
+  }
+
+  onMapNoteChange(_type: 'shared' | 'public' | 'private', _content: string): void {
   }
 
   startEditVariable(_variable: MapVariable): void {
