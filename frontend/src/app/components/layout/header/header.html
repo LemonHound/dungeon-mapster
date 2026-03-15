@@ -9,20 +9,25 @@
       @if (currentUser) {
         <a routerLink="/maps" routerLinkActive="active">My Maps</a>
       }
-
-      <div class="auth-section">
-        @if (currentUser) {
-          <div class="user-info">
-            @if (currentUser.profilePictureUrl) {
-              <img [src]="currentUser.profilePictureUrl" alt="{{ currentUser.name }}" class="user-avatar"/>
-            }
-            <span class="user-name">{{ currentUser.name }}</span>
-          </div>
-          <button (click)="logout()" class="logout-btn">Logout</button>
-        } @else {
-          <button (click)="login()" class="login-btn">Login with Google</button>
-        }
-      </div>
     </nav>
+
+    <div class="header-actions">
+      @if (showDmAdmin) {
+        <button class="header-btn header-btn-admin" [class.active]="dmAdminActive" (click)="onDmAdminClick()">
+          🛡️ <span class="btn-label">DM Admin</span>
+        </button>
+      }
+      @if (currentUser) {
+        <div class="user-info">
+          @if (currentUser.profilePictureUrl) {
+            <img [src]="currentUser.profilePictureUrl" alt="{{ currentUser.name }}" class="user-avatar"/>
+          }
+          <span class="user-name">{{ currentUser.name }}</span>
+        </div>
+        <button (click)="logout()" class="logout-btn">Logout</button>
+      } @else {
+        <button (click)="login()" class="login-btn">Login with Google</button>
+      }
+    </div>
   </div>
 </header>

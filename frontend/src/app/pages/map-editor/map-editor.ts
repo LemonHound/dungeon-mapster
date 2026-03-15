@@ -16,8 +16,9 @@ import {Subscription} from 'rxjs';
 import {MapVariableService} from '../../services/map-variable.service';
 import {CellVariableValueService} from '../../services/cell-variable-value.service';
 import {MapVariable, CellVariableValue} from '../../models/map-variable.model';
-
-type TabType = 'map-details' | 'grid' | 'variables' | 'members' | 'actions';
+import {NoteService} from '../../services/note.service';
+import {NoteBundle} from '../../models/note.model';
+import {EditorActionsService} from '../../services/editor-actions.service';
 
 @Component({
   selector: 'app-map-editor',
@@ -37,6 +38,8 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private wsService = inject(WebSocketService);
   private mapVariableService = inject(MapVariableService);
   private cellVariableValueService = inject(CellVariableValueService);
+  private noteService = inject(NoteService);
+  private editorActionsService = inject(EditorActionsService);
   private ngZone = inject(NgZone);
 
   @ViewChild('mapCanvas') mapCanvasRef!: ElementRef<HTMLCanvasElement>;
@@ -70,8 +73,14 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   public selectedCellName = '';
   private cellNameTimeout?: ReturnType<typeof setTimeout>;
 
-  public activeTab: TabType = 'grid';
-  public isPanelExpanded = false;
+  public activePanel: 'cell' | 'notes' | 'admin' | null = null;
+  public adminTab: 'map' | 'members' | 'variables' = 'map';
+  public cellNoteTab: 'shared' | 'public' | 'private' = 'shared';
+  public showGrid = true;
+  public notesAccordion: Record<string, boolean> = {};
+  public cellNoteBundle: NoteBundle | null = null;
+  public mapNoteBundle: NoteBundle | null = null;
+  private noteSaveTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
   public imageLoading = false;
   public noImagePrompt = false;
@@ -115,6 +124,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private wsSub?: Subscription;
   private statusSub?: Subscription;
+  private adminClickSub?: Subscription;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -125,6 +135,10 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     } else {
       this.createInitialMap();
     }
+
+    this.adminClickSub = this.editorActionsService.dmAdminClicked.subscribe(() => {
+      this.toggleAdminPanel();
+    });
   }
 
   ngAfterViewInit(): void {
@@ -148,6 +162,10 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     this.statusSub?.unsubscribe();
     this.wsService.disconnect();
     this.variableSaveTimeouts.forEach(t => clearTimeout(t));
+    this.noteSaveTimeouts.forEach(t => clearTimeout(t));
+    this.adminClickSub?.unsubscribe();
+    this.editorActionsService.setDmAdminVisible(false);
+    this.editorActionsService.setDmAdminActive(false);
   }
 
   canEdit(): boolean {
@@ -283,6 +301,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
           if (user) {
             const membership = members.find(m => m.userId === user.id);
             this.userRole = membership?.role || null;
+            const isDmOrOwner = this.isDmOrOwner();
+            this.editorActionsService.setDmAdminVisible(isDmOrOwner);
+            if (isDmOrOwner && !this.mapData.imageUrl) {
+              this.activePanel = 'admin';
+              this.editorActionsService.setDmAdminActive(true);
+            }
             if (this.mapId) this.connectWebSocket(this.mapId);
           }
         });
@@ -673,13 +697,143 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  setActiveTab(tab: TabType): void {
-    if (this.activeTab === tab && this.isPanelExpanded) {
-      this.isPanelExpanded = false;
-    } else {
-      this.activeTab = tab;
-      this.isPanelExpanded = true;
+  closePanel(): void {
+    this.activePanel = null;
+    if (this.editorActionsService) {
+      this.editorActionsService.setDmAdminActive(false);
     }
+  }
+
+  handleNotesFab(): void {
+    if (this.activePanel === 'notes') {
+      this.closePanel();
+    } else {
+      this.activePanel = 'notes';
+      this.editorActionsService.setDmAdminActive(false);
+      if (this.mapId && this.mapNoteBundle === null) {
+        this.loadMapNotes();
+      }
+    }
+  }
+
+  toggleAdminPanel(): void {
+    if (this.activePanel === 'admin') {
+      this.closePanel();
+    } else {
+      this.activePanel = 'admin';
+      this.editorActionsService.setDmAdminActive(true);
+    }
+  }
+
+  toggleShowGrid(): void {
+    this.render();
+  }
+
+  toggleAccordion(key: string): void {
+    this.notesAccordion[key] = !this.notesAccordion[key];
+  }
+
+  getCellLabel(): string {
+    if (!this.selectedCell) return '—';
+    const col = this.selectedCell.col;
+    const row = this.selectedCell.row + 1;
+    let colLabel = '';
+    let c = col;
+    do {
+      colLabel = String.fromCharCode(65 + (c % 26)) + colLabel;
+      c = Math.floor(c / 26) - 1;
+    } while (c >= 0);
+    return colLabel + row;
+  }
+
+  getMemberName(userId: number): string {
+    return this.memberUsers.get(userId)?.name ?? `User ${userId}`;
+  }
+
+  getMemberInitials(userId: number): string {
+    const name = this.memberUsers.get(userId)?.name;
+    if (!name) return '?';
+    return name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+  }
+
+  getMemberBgColor(userId: number): string {
+    const colors = ['#e74c3c','#3498db','#27ae60','#f39c12','#9b59b6','#1abc9c','#e67e22','#2980b9'];
+    return colors[userId % colors.length];
+  }
+
+  getMemberFgColor(_userId: number): string {
+    return '#ffffff';
+  }
+
+  isUserOnline(userId: number): boolean {
+    return this.connectedUsers.some(u => u.userId === userId);
+  }
+
+  startCreateVariableAdmin(): void {
+    this.manageVariablesOpen = true;
+    this.variableForm = {dataType: 'TEXT', visibility: 'PLAYER_EDIT', showColorOnCells: false};
+    this.editingVariableId = null;
+  }
+
+  private loadCellNotes(row: number, col: number): void {
+    if (!this.mapId) return;
+    this.cellNoteBundle = null;
+    this.noteService.getCellNotes(this.mapId, row, col).subscribe({
+      next: (bundle) => this.cellNoteBundle = bundle,
+      error: (e) => console.error('Error loading cell notes:', e)
+    });
+  }
+
+  private loadMapNotes(): void {
+    if (!this.mapId) return;
+    this.noteService.getMapNotes(this.mapId).subscribe({
+      next: (bundle) => this.mapNoteBundle = bundle,
+      error: (e) => console.error('Error loading map notes:', e)
+    });
+  }
+
+  onCellNoteChange(type: 'shared' | 'public' | 'private', content: string): void {
+    if (!this.cellNoteBundle) this.cellNoteBundle = {sharedContent: null, myPublicContent: null, myPrivateContent: null, othersPublic: []};
+    if (type === 'shared') this.cellNoteBundle = {...this.cellNoteBundle, sharedContent: content};
+    if (type === 'public') this.cellNoteBundle = {...this.cellNoteBundle, myPublicContent: content};
+    if (type === 'private') this.cellNoteBundle = {...this.cellNoteBundle, myPrivateContent: content};
+    this.debounceSaveCellNote(type, content);
+  }
+
+  onMapNoteChange(type: 'shared' | 'public' | 'private', content: string): void {
+    if (!this.mapNoteBundle) this.mapNoteBundle = {sharedContent: null, myPublicContent: null, myPrivateContent: null, othersPublic: []};
+    if (type === 'shared') this.mapNoteBundle = {...this.mapNoteBundle, sharedContent: content};
+    if (type === 'public') this.mapNoteBundle = {...this.mapNoteBundle, myPublicContent: content};
+    if (type === 'private') this.mapNoteBundle = {...this.mapNoteBundle, myPrivateContent: content};
+    this.debounceSaveMapNote(type, content);
+  }
+
+  private debounceSaveCellNote(type: 'shared' | 'public' | 'private', content: string): void {
+    if (!this.selectedCell || !this.mapId) return;
+    const key = `cell:${this.selectedCell.row}:${this.selectedCell.col}:${type}`;
+    const existing = this.noteSaveTimeouts.get(key);
+    if (existing) clearTimeout(existing);
+    const row = this.selectedCell.row;
+    const col = this.selectedCell.col;
+    this.noteSaveTimeouts.set(key, setTimeout(() => {
+      if (!this.mapId) return;
+      this.noteService.saveCellNote(this.mapId, row, col, type, content).subscribe({
+        error: (e) => console.error('Error saving cell note:', e)
+      });
+    }, 500));
+  }
+
+  private debounceSaveMapNote(type: 'shared' | 'public' | 'private', content: string): void {
+    if (!this.mapId) return;
+    const key = `map:${type}`;
+    const existing = this.noteSaveTimeouts.get(key);
+    if (existing) clearTimeout(existing);
+    this.noteSaveTimeouts.set(key, setTimeout(() => {
+      if (!this.mapId) return;
+      this.noteService.saveMapNote(this.mapId, type, content).subscribe({
+        error: (e) => console.error('Error saving map note:', e)
+      });
+    }, 500));
   }
 
   onCellNameChange(): void {
@@ -757,6 +911,12 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       width: this.mapImage.width * this.scale,
       height: this.mapImage.height * this.scale
     };
+
+    if (!this.showGrid) {
+      this.gridCtx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
+      this.drawCellTints(imageBounds);
+      return;
+    }
 
     this.gridStrategy.draw(
       this.gridCtx,
@@ -1057,7 +1217,10 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
             }
           }
         });
+        this.loadCellNotes(this.selectedCell.row, this.selectedCell.col);
       }
+
+      this.activePanel = 'cell';
     }
 
     this.render();
