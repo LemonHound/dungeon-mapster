@@ -1,4 +1,4 @@
-import {TestBed, fakeAsync, tick} from '@angular/core/testing';
+import {TestBed} from '@angular/core/testing';
 import {provideHttpClient} from '@angular/common/http';
 import {provideHttpClientTesting} from '@angular/common/http/testing';
 import {vi} from 'vitest';
@@ -60,7 +60,8 @@ describe('WebSocketService', () => {
     expect(() => service.sendFieldBlur()).not.toThrow();
   });
 
-  it('scheduleReconnect doubles delay on each reconnect attempt', fakeAsync(() => {
+  it('scheduleReconnect doubles delay on each reconnect attempt', () => {
+    vi.useFakeTimers();
     authService.getToken.mockReturnValue('fake-token');
     const connectSpy = vi.spyOn(service, 'connect').mockResolvedValue(undefined);
     const internals = service as unknown as ServiceInternals;
@@ -69,12 +70,14 @@ describe('WebSocketService', () => {
     internals.reconnectDelay = 1000;
     internals.scheduleReconnect();
 
-    tick(1000);
+    vi.advanceTimersByTime(1000);
     expect(connectSpy).toHaveBeenCalledWith(1);
     expect(internals.reconnectDelay).toBe(2000);
-  }));
+    vi.useRealTimers();
+  });
 
-  it('scheduleReconnect caps delay at 30 seconds', fakeAsync(() => {
+  it('scheduleReconnect caps delay at 30 seconds', () => {
+    vi.useFakeTimers();
     authService.getToken.mockReturnValue('fake-token');
     vi.spyOn(service, 'connect').mockResolvedValue(undefined);
     const internals = service as unknown as ServiceInternals;
@@ -83,7 +86,8 @@ describe('WebSocketService', () => {
     internals.reconnectDelay = 16000;
     internals.scheduleReconnect();
 
-    tick(16000);
+    vi.advanceTimersByTime(16000);
     expect(internals.reconnectDelay).toBe(30000);
-  }));
+    vi.useRealTimers();
+  });
 });
