@@ -16,6 +16,10 @@
 * Provide suggestions for refactoring, simplification, or modernization. Unless otherwise directed, this should always
   be initiated through a new feature/folder and spec.md file.
 
+# Pull Requests
+
+* Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
+
 # General Instructions
 
 * You will be told if the conversation is either planning or implementation. If not told, ask.
