@@ -73,7 +73,7 @@
       <div class="flyout-body">
         @if (selectedCell) {
           <div class="flyout-section">
-            <label class="flyout-field-label">Cell Name</label>
+            <span class="flyout-field-label">Cell Name</span>
             <input
               type="text"
               class="flyout-input"
@@ -86,7 +86,7 @@
 
           @if (variables.length > 0) {
             <div class="flyout-section">
-              <label class="flyout-field-label">Variables</label>
+              <span class="flyout-field-label">Variables</span>
               <div class="cell-variables">
                 @for (variable of variables; track variable.id) {
                   <div class="cell-variable-field">
@@ -301,12 +301,12 @@
 
           @if (adminTab === 'map') {
             <div class="flyout-section">
-              <label class="flyout-field-label">Map Name</label>
+              <span class="flyout-field-label">Map Name</span>
               <input type="text" class="flyout-input" [(ngModel)]="mapData.name" (input)="onMapNameChange()" placeholder="Map name"/>
             </div>
 
             <div class="flyout-section">
-              <label class="flyout-field-label">Map Image</label>
+              <span class="flyout-field-label">Map Image</span>
               <label class="file-upload-label">
                 <input type="file" accept="image/*" (change)="onFileSelected($event)" style="display: none;"/>
                 <span class="upload-button">Upload Image</span>
@@ -318,7 +318,7 @@
 
             @if (mapData.joinCode) {
               <div class="flyout-section">
-                <label class="flyout-field-label">Join Code</label>
+                <span class="flyout-field-label">Join Code</span>
                 <div class="join-code-row">
                   <code class="join-code-value">{{ mapData.joinCode }}</code>
                   <button (click)="copyJoinCode()" class="copy-btn">Copy</button>
@@ -331,7 +331,7 @@
             }
 
             <div class="flyout-section">
-              <label class="flyout-field-label">Grid Type</label>
+              <span class="flyout-field-label">Grid Type</span>
               <div class="grid-type-selector">
                 <button class="grid-type-btn" [class.active]="gridType === 'square'" (click)="setGridType('square')">Square</button>
                 <button class="grid-type-btn" [class.active]="gridType === 'hex'" (click)="setGridType('hex')">Hex</button>
@@ -340,7 +340,7 @@
 
             @if (gridType === 'hex') {
               <div class="flyout-section">
-                <label class="flyout-field-label">Hex Orientation</label>
+                <span class="flyout-field-label">Hex Orientation</span>
                 <div class="grid-type-selector">
                   <button class="grid-type-btn" [class.active]="hexOrientation === 'flat'" (click)="setHexOrientation('flat')">Flat</button>
                   <button class="grid-type-btn" [class.active]="hexOrientation === 'pointy'" (click)="setHexOrientation('pointy')">Pointy</button>
@@ -349,7 +349,7 @@
             }
 
             <div class="flyout-section">
-              <label class="flyout-field-label">Grid Size</label>
+              <span class="flyout-field-label">Grid Size</span>
               <div class="grid-size-row">
                 <input type="number" class="flyout-input" [(ngModel)]="gridSize" (input)="onGridChange()" [disabled]="gridLocked" min="10" max="200"/>
                 <button class="grid-lock-btn" [class.active]="!gridLocked" (click)="toggleGridLock()">

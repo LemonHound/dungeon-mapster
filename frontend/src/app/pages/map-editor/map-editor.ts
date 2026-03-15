@@ -788,6 +788,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     return colors[userId % colors.length];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getMemberFgColor(_userId: number): string {
     return '#ffffff';
   }
