@@ -86,7 +86,7 @@ steps:
           --platform=managed \
           --image="$$IMAGE" \
           --region=${_DEPLOY_REGION} \
-          --update-env-vars="SPRING_DATASOURCE_URL=jdbc:postgresql:///dungeonmapster_test?cloudSqlInstance=$_AR_PROJECT_ID:$_DEPLOY_REGION:dungeonmapster-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory,SPRING_PROFILES_ACTIVE=prod" \
+          --update-env-vars="^@^SPRING_PROFILES_ACTIVE=prod,test-cloud" \
           --quiet
 
   # Create GitHub deployment record (returns ID used for all subsequent status updates)
