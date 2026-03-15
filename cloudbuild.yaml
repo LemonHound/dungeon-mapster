@@ -84,7 +84,7 @@ steps:
         IMAGE="$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_PROD_SERVICE:$(cat /workspace/image-tag)"
         gcloud run services update ${_TEST_SERVICE} \
           --platform=managed \
-          --image="$IMAGE" \
+          --image="$$IMAGE" \
           --region=${_DEPLOY_REGION} \
           --quiet
 
@@ -145,10 +145,10 @@ steps:
 
         if [ -f /workspace/e2e-failed ]; then
           PREV=$(cat /workspace/prev-test-revision)
-          if [ -n "$PREV" ]; then
+          if [ -n "$$PREV" ]; then
             gcloud run services update-traffic ${_TEST_SERVICE} \
               --region=${_DEPLOY_REGION} \
-              --to-revisions="$PREV=100"
+              --to-revisions="$$PREV=100"
           fi
           post_status '{"state":"failure","description":"E2E tests failed — test environment rolled back"}'
           exit 1
@@ -163,15 +163,15 @@ steps:
         IMAGE="$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_PROD_SERVICE:$(cat /workspace/image-tag)"
         gcloud run services update ${_PROD_SERVICE} \
           --platform=managed \
-          --image="$IMAGE" \
+          --image="$$IMAGE" \
           --region=${_DEPLOY_REGION} \
           --quiet \
         || {
           PREV=$(cat /workspace/prev-prod-revision)
-          if [ -n "$PREV" ]; then
+          if [ -n "$$PREV" ]; then
             gcloud run services update-traffic ${_PROD_SERVICE} \
               --region=${_DEPLOY_REGION} \
-              --to-revisions="$PREV=100"
+              --to-revisions="$$PREV=100"
           fi
           post_status "{\"state\":\"failure\",\"description\":\"Prod deploy failed — rolled back\"}"
           exit 1
