@@ -451,6 +451,33 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         if (this.activeTintVariableId === msg.variableId) this.render();
         break;
       }
+      case 'CELL_NOTE_UPDATE': {
+        const myId = this.getCurrentUserId();
+        if (msg.userId === myId) break;
+        if (!this.cellNoteBundle) break;
+        if (this.selectedCell?.row !== msg.row || this.selectedCell?.col !== msg.col) break;
+        if (msg.noteType === 'shared') {
+          this.cellNoteBundle = {...this.cellNoteBundle, sharedContent: msg.content};
+        } else if (msg.noteType === 'public') {
+          const others = this.cellNoteBundle.othersPublic.filter(o => o.userId !== msg.userId);
+          if (msg.content) others.push({userId: msg.userId, content: msg.content});
+          this.cellNoteBundle = {...this.cellNoteBundle, othersPublic: others};
+        }
+        break;
+      }
+      case 'MAP_NOTE_UPDATE': {
+        const myId = this.getCurrentUserId();
+        if (msg.userId === myId) break;
+        if (!this.mapNoteBundle) break;
+        if (msg.noteType === 'shared') {
+          this.mapNoteBundle = {...this.mapNoteBundle, sharedContent: msg.content};
+        } else if (msg.noteType === 'public') {
+          const others = this.mapNoteBundle.othersPublic.filter(o => o.userId !== msg.userId);
+          if (msg.content) others.push({userId: msg.userId, content: msg.content});
+          this.mapNoteBundle = {...this.mapNoteBundle, othersPublic: others};
+        }
+        break;
+      }
     }
   }
 

@@ -3,6 +3,7 @@ package org.dungeonmaps.DungeonMapster.controller;
 import org.dungeonmaps.DungeonMapster.model.MapMembership.MapRole;
 import org.dungeonmaps.DungeonMapster.service.DungeonMapService;
 import org.dungeonmaps.DungeonMapster.service.NoteService;
+import org.dungeonmaps.DungeonMapster.websocket.MapCacheService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +16,12 @@ public class NoteController {
 
     private final NoteService noteService;
     private final DungeonMapService mapService;
+    private final MapCacheService mapCacheService;
 
-    public NoteController(NoteService noteService, DungeonMapService mapService) {
+    public NoteController(NoteService noteService, DungeonMapService mapService, MapCacheService mapCacheService) {
         this.noteService = noteService;
         this.mapService = mapService;
+        this.mapCacheService = mapCacheService;
     }
 
     @GetMapping("/cell/{row}/{col}")
@@ -52,6 +55,9 @@ public class NoteController {
         }
         String content = body.getOrDefault("content", "");
         noteService.saveCellNote(mapId, row, col, userId, type, content);
+        if (!"private".equals(type)) {
+            mapCacheService.broadcastCellNoteUpdate(mapId, row, col, type, content, userId);
+        }
         return ResponseEntity.ok().build();
     }
 
@@ -79,6 +85,9 @@ public class NoteController {
         }
         String content = body.getOrDefault("content", "");
         noteService.saveMapNote(mapId, userId, type, content);
+        if (!"private".equals(type)) {
+            mapCacheService.broadcastMapNoteUpdate(mapId, type, content, userId);
+        }
         return ResponseEntity.ok().build();
     }
 }
