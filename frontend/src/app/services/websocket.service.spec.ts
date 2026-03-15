@@ -5,11 +5,11 @@ import {vi} from 'vitest';
 import {WebSocketService} from './websocket.service';
 import {AuthService} from './auth.service';
 
-type ServiceInternals = {
+interface ServiceInternals {
   mapId: number | null;
   reconnectDelay: number;
   scheduleReconnect: () => void;
-};
+}
 
 describe('WebSocketService', () => {
   let service: WebSocketService;
