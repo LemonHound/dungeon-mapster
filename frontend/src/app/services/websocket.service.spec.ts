@@ -1,16 +1,22 @@
 import {TestBed, fakeAsync, tick} from '@angular/core/testing';
 import {provideHttpClient} from '@angular/common/http';
 import {provideHttpClientTesting} from '@angular/common/http/testing';
+import {vi} from 'vitest';
 import {WebSocketService} from './websocket.service';
 import {AuthService} from './auth.service';
-import {Client} from '@stomp/stompjs';
+
+type ServiceInternals = {
+  mapId: number | null;
+  reconnectDelay: number;
+  scheduleReconnect: () => void;
+};
 
 describe('WebSocketService', () => {
   let service: WebSocketService;
-  let authService: jasmine.SpyObj<AuthService>;
+  let authService: {getToken: ReturnType<typeof vi.fn>};
 
   beforeEach(() => {
-    authService = jasmine.createSpyObj('AuthService', ['getToken']);
+    authService = {getToken: vi.fn()};
 
     TestBed.configureTestingModule({
       providers: [
@@ -32,7 +38,7 @@ describe('WebSocketService', () => {
   });
 
   it('connect does not activate client when token is absent', async () => {
-    authService.getToken.and.returnValue(null);
+    authService.getToken.mockReturnValue(null);
     await service.connect(1);
     expect(service.connectionStatus$.getValue()).toBe('disconnected');
   });
@@ -55,27 +61,29 @@ describe('WebSocketService', () => {
   });
 
   it('scheduleReconnect doubles delay on each reconnect attempt', fakeAsync(() => {
-    authService.getToken.and.returnValue('fake-token');
-    const connectSpy = spyOn(service, 'connect').and.returnValue(Promise.resolve());
+    authService.getToken.mockReturnValue('fake-token');
+    const connectSpy = vi.spyOn(service, 'connect').mockResolvedValue(undefined);
+    const internals = service as unknown as ServiceInternals;
 
-    (service as any).mapId = 1;
-    (service as any).reconnectDelay = 1000;
-    (service as any).scheduleReconnect();
+    internals.mapId = 1;
+    internals.reconnectDelay = 1000;
+    internals.scheduleReconnect();
 
     tick(1000);
     expect(connectSpy).toHaveBeenCalledWith(1);
-    expect((service as any).reconnectDelay).toBe(2000);
+    expect(internals.reconnectDelay).toBe(2000);
   }));
 
   it('scheduleReconnect caps delay at 30 seconds', fakeAsync(() => {
-    authService.getToken.and.returnValue('fake-token');
-    spyOn(service, 'connect').and.returnValue(Promise.resolve());
+    authService.getToken.mockReturnValue('fake-token');
+    vi.spyOn(service, 'connect').mockResolvedValue(undefined);
+    const internals = service as unknown as ServiceInternals;
 
-    (service as any).mapId = 1;
-    (service as any).reconnectDelay = 16000;
-    (service as any).scheduleReconnect();
+    internals.mapId = 1;
+    internals.reconnectDelay = 16000;
+    internals.scheduleReconnect();
 
     tick(16000);
-    expect((service as any).reconnectDelay).toBe(30000);
+    expect(internals.reconnectDelay).toBe(30000);
   }));
 });

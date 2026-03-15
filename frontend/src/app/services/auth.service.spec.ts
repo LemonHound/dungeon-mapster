@@ -1,7 +1,7 @@
 import {TestBed} from '@angular/core/testing';
 import {HttpTestingController, provideHttpClientTesting} from '@angular/common/http/testing';
 import {provideHttpClient} from '@angular/common/http';
-import {AuthService} from './auth.service';
+import {AuthService, User} from './auth.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -57,7 +57,7 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBeFalse();
     expect(service.getToken()).toBeNull();
 
-    let user: any;
+    let user: User | null = null;
     service.currentUser$.subscribe(u => (user = u));
     expect(user).toBeNull();
   });
@@ -67,7 +67,7 @@ describe('AuthService', () => {
     const req = httpMock.expectOne('/api/auth/me');
     req.flush({id: 42, email: 'user@test.com', name: 'User', profilePictureUrl: 'pic.jpg'});
 
-    let user: any;
+    let user: User | null = null;
     service.currentUser$.subscribe(u => (user = u));
     expect(user?.email).toBe('user@test.com');
   });
