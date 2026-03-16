@@ -36,7 +36,7 @@ test.describe('map editor — single user', () => {
     await page.goto(`/map-editor/${mapId}`);
     await page.waitForLoadState('networkidle');
 
-    const canvas = page.locator('canvas').first();
+    const canvas = page.locator('#grid-canvas');
     await canvas.waitFor({state: 'visible', timeout: 10000});
     await canvas.click({position: {x: 100, y: 100}});
     await page.waitForTimeout(500);
@@ -45,6 +45,6 @@ test.describe('map editor — single user', () => {
   test('map name is displayed', async ({page}) => {
     await page.goto(`/map-editor/${mapId}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('body')).toContainText('E2E Test Map', {timeout: 10000});
+    await expect(page.locator('input[placeholder="Map name"]')).toHaveValue('E2E Test Map', {timeout: 10000});
   });
 });
