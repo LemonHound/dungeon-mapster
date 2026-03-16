@@ -85,7 +85,7 @@ test.describe('multi-user WebSocket', () => {
 
       await pageA.waitForTimeout(1000);
 
-      const canvas = pageA.locator('canvas').first();
+      const canvas = pageA.locator('#grid-canvas');
       if (await canvas.isVisible()) {
         await canvas.click({position: {x: 120, y: 120}});
         await pageB.waitForTimeout(800);
