@@ -92,7 +92,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   public variables: MapVariable[] = [];
   public cellVariableValues = new Map<string, CellVariableValue[]>();
-  public manageVariablesOpen = false;
   public variableForm: Partial<MapVariable> | null = null;
   public editingVariableId: string | null = null;
   public newPicklistLabel = '';
@@ -798,7 +797,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   startCreateVariableAdmin(): void {
-    this.manageVariablesOpen = true;
     this.variableForm = {dataType: 'TEXT', visibility: 'PLAYER_EDIT', showColorOnCells: false};
     this.editingVariableId = null;
   }
@@ -1260,18 +1258,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   get editingVariable(): MapVariable | null {
     return this.variables.find(v => v.id === this.editingVariableId) ?? null;
-  }
-
-  openManageVariables(): void {
-    this.manageVariablesOpen = true;
-    this.variableForm = null;
-    this.editingVariableId = null;
-  }
-
-  closeManageVariables(): void {
-    this.manageVariablesOpen = false;
-    this.variableForm = null;
-    this.editingVariableId = null;
   }
 
   startCreateVariable(): void {
