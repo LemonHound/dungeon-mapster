@@ -725,9 +725,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   closePanel(): void {
     this.activePanel = null;
+    this.selectedCell = null;
     if (this.editorActionsService) {
       this.editorActionsService.setDmAdminActive(false);
     }
+    this.render();
   }
 
   handleNotesFab(): void {
@@ -1223,6 +1225,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private handleCellClick(x: number, y: number): void {
+    if (this.activePanel !== null) {
+      this.closePanel();
+      return;
+    }
+
     this.selectedCell = this.gridStrategy.getCellFromPoint(
       x, y, this.gridSize, this.gridOffsetX, this.gridOffsetY, this.gridScale
     );
