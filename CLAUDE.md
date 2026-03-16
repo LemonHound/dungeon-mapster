@@ -19,6 +19,16 @@
 # Pull Requests
 
 * Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
+* Immediately after enabling auto-merge, verify the PR is mergeable:
+  ```
+  gh pr view <number> --json mergeable,mergeStateStatus
+  ```
+  * If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `BEHIND`, rebase onto `origin/main` and force-push before moving on:
+    ```
+    git fetch origin
+    git rebase origin/main
+    git push --force-with-lease origin <branch>
+    ```
 
 # General Instructions
 
