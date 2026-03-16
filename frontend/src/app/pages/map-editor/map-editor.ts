@@ -68,7 +68,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private gridStrategy: GridStrategy = new SquareGridStrategy();
   public hexOrientation: HexOrientation = 'flat';
 
-  private mouseDownTime = 0;
   public selectedCell: GridCell | null = null;
   public selectedCellName = '';
   private cellNameTimeout?: ReturnType<typeof setTimeout>;
@@ -995,12 +994,13 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   private setupMouseEvents(): void {
     let isDragging = false;
+    let dragMoved = false;
     let lastX = 0;
     let lastY = 0;
 
     this.gridCanvas.addEventListener('mousedown', (e) => {
-      this.mouseDownTime = Date.now();
       isDragging = true;
+      dragMoved = false;
       lastX = e.clientX;
       lastY = e.clientY;
       e.preventDefault();
@@ -1011,6 +1011,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
       const deltaX = e.clientX - lastX;
       const deltaY = e.clientY - lastY;
+      dragMoved = true;
 
       if (this.gridLocked) {
         this.offsetX += deltaX;
@@ -1029,12 +1030,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.gridCanvas.addEventListener('mouseup', (e) => {
       isDragging = false;
-      const clickDuration = Date.now() - this.mouseDownTime;
-      if (clickDuration < 200 && this.gridLocked) {
+      if (!dragMoved && this.gridLocked) {
         const rect = this.gridCanvas.getBoundingClientRect();
         this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-      if (!this.gridLocked && clickDuration >= 200) {
+      if (!this.gridLocked && dragMoved) {
         this.scheduleAutoSave();
       }
     });
