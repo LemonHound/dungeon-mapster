@@ -45,3 +45,6 @@ Thumbs.db
 
 # Database files
 data/
+
+# Playwright auth state
+e2e/.auth/
