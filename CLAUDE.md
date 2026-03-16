@@ -20,6 +20,15 @@
 
 * Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
 
+# Branch & Sync Hygiene
+
+* Before creating any implementation branch, always fetch and base it on current main:
+  ```
+  git fetch origin
+  git checkout -b <branch> origin/main
+  ```
+* Never branch from a prior feature/fix branch unless the work explicitly depends on it.
+
 # General Instructions
 
 * You will be told if the conversation is either planning or implementation. If not told, ask.
