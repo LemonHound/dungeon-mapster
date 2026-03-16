@@ -86,7 +86,7 @@ steps:
           --platform=managed \
           --image="$$IMAGE" \
           --region=${_DEPLOY_REGION} \
-          --update-env-vars="DB_NAME=dungeonmapster_test" \
+          --update-env-vars="DB_NAME=dungeonmapster_test,APP_E2E_ENABLED=true" \
           --quiet
 
         gcloud run services update-traffic ${_TEST_SERVICE} \
@@ -114,7 +114,6 @@ steps:
     id: e2e-tests
     waitFor: [github-deployment-create]
     entrypoint: bash
-    secretEnv: [TEST_AUTH_TOKEN]
     args:
       - -c
       - |
@@ -122,8 +121,15 @@ steps:
         npm ci --prefer-offline
         npx playwright install chromium --with-deps
 
+        for i in $(seq 1 12); do
+          TOKEN_RESP=$(curl -sf -X POST ${_TEST_URL}/api/test/token 2>/dev/null) && break
+          echo "Waiting for test service... attempt $i"
+          sleep 10
+        done
+        FRESH_TOKEN=$(echo "$$TOKEN_RESP" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
+
         BASE_URL=${_TEST_URL} \
-        TEST_AUTH_TOKEN=$$TEST_AUTH_TOKEN \
+        TEST_AUTH_TOKEN="$$FRESH_TOKEN" \
         WS_USER_COUNT=3 \
         npx playwright test \
         || echo "failed" > /workspace/e2e-failed
@@ -190,8 +196,6 @@ availableSecrets:
       env: GITHUB_TOKEN
     - versionName: projects/$_AR_PROJECT_ID/secrets/JWT_SECRET/versions/latest
       env: JWT_SECRET
-    - versionName: projects/$_AR_PROJECT_ID/secrets/TEST_AUTH_TOKEN/versions/latest
-      env: TEST_AUTH_TOKEN
 
 options:
   substitutionOption: ALLOW_LOOSE
