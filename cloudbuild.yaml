@@ -6,7 +6,7 @@ substitutions:
   _TEST_SERVICE: dungeon-mapster-test
   _PROD_SERVICE: dungeonmapster
   _TEST_URL: https://dungeon-mapster-test-675207457500.us-central1.run.app
-  _PROD_URL: https://dungeonmapster-675207457500.us-central1.run.app
+  _PROD_URL: https://dungeonmapster.com
 
 steps:
   # Compute image tag: YYYY-MM-DD-{short-sha}
