@@ -1249,6 +1249,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       }
 
       this.activePanel = 'cell';
+      this.editorActionsService.setDmAdminActive(false);
     }
 
     this.render();
