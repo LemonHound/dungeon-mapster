@@ -18,17 +18,15 @@
 
 # Pull Requests
 
+* Before creating a PR:
+  1. Check for any open PRs (`gh pr list`). If any exist, do not submit — wait for them to merge first, then rebase and submit.
+  2. Rebase onto `origin/main` and force-push:
+     ```
+     git fetch origin
+     git rebase origin/main
+     git push --force-with-lease
+     ```
 * Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
-* Immediately after enabling auto-merge, verify the PR is mergeable:
-  ```
-  gh pr view <number> --json mergeable,mergeStateStatus
-  ```
-  * If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `BEHIND`, rebase onto `origin/main` and force-push before moving on:
-    ```
-    git fetch origin
-    git rebase origin/main
-    git push --force-with-lease origin <branch>
-    ```
 
 # Branch & Sync Hygiene
 
