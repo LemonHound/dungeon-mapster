@@ -358,8 +358,10 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         break;
       }
       case 'SELECTION': {
-        this.remoteSelections.set(msg.userId, {userId: msg.userId, row: msg.row, col: msg.col, color: msg.color});
-        this.render();
+        if (msg.userId !== this.getCurrentUserId()) {
+          this.remoteSelections.set(msg.userId, {userId: msg.userId, row: msg.row, col: msg.col, color: msg.color});
+          this.render();
+        }
         break;
       }
       case 'FIELD_FOCUS': {
