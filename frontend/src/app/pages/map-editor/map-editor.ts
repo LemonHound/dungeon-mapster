@@ -348,6 +348,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
             role: msg.role as UserPresence['role'],
           }];
         }
+        if (msg.userId !== this.getCurrentUserId() && this.selectedCell) {
+          this.wsService.sendSelection(this.selectedCell.row, this.selectedCell.col);
+        }
         break;
       }
       case 'USER_LEFT': {
