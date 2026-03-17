@@ -40,4 +40,12 @@ export interface GridStrategy {
     offsetY: number,
     scale: number
   ): void;
+
+  getCellBadgePosition?(
+    cell: GridCell,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    scale: number
+  ): { x: number; y: number };
 }

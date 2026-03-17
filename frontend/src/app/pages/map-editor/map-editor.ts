@@ -778,6 +778,21 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     return colLabel + row;
   }
 
+  private drawUserBadge(ctx: CanvasRenderingContext2D, x: number, y: number, initials: string, color: string): void {
+    const r = 10;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${r}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, x, y);
+    ctx.restore();
+  }
+
   getMemberName(userId: number): string {
     return this.memberUsers.get(userId)?.name ?? `User ${userId}`;
   }
@@ -993,6 +1008,16 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
           this.gridScale
         );
         this.gridCtx.restore();
+        if (this.gridStrategy.getCellBadgePosition) {
+          const pos = this.gridStrategy.getCellBadgePosition(
+            {row: sel.row, col: sel.col},
+            this.gridSize,
+            this.gridOffsetX,
+            this.gridOffsetY,
+            this.gridScale
+          );
+          this.drawUserBadge(this.gridCtx, pos.x, pos.y, this.getMemberInitials(sel.userId), sel.color);
+        }
       });
     }
   }

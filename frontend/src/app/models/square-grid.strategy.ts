@@ -82,6 +82,20 @@ export class SquareGridStrategy implements GridStrategy {
     return { row, col };
   }
 
+  getCellBadgePosition(
+    cell: GridCell,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    scale: number
+  ): { x: number; y: number } {
+    const effectiveSize = cellSize * scale;
+    return {
+      x: offsetX + (cell.col + 1) * effectiveSize,
+      y: offsetY + cell.row * effectiveSize
+    };
+  }
+
   drawHighlight(
     ctx: CanvasRenderingContext2D,
     cell: GridCell,

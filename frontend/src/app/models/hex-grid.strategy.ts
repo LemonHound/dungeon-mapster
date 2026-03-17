@@ -188,6 +188,36 @@ export class HexGridStrategy implements GridStrategy {
     }
   }
 
+  getCellBadgePosition(
+    cell: GridCell,
+    cellSize: number,
+    offsetX: number,
+    offsetY: number,
+    scale: number
+  ): { x: number; y: number } {
+    const size = cellSize * scale;
+
+    if (this.orientation === 'flat') {
+      const width = size * 2;
+      const height = Math.sqrt(3) * size;
+      const horizDistance = width * 0.75;
+      const vertDistance = height;
+      const yOffset = cell.col % 2 === 0 ? 0 : vertDistance / 2;
+      const centerX = offsetX + cell.col * horizDistance + size;
+      const centerY = offsetY + cell.row * vertDistance + height / 2 + yOffset;
+      return { x: centerX + size, y: centerY - height / 2 };
+    } else {
+      const width = Math.sqrt(3) * size;
+      const height = size * 2;
+      const horizDistance = width;
+      const vertDistance = height * 0.75;
+      const xOffset = cell.row % 2 === 0 ? 0 : horizDistance / 2;
+      const centerX = offsetX + cell.col * horizDistance + width / 2 + xOffset;
+      const centerY = offsetY + cell.row * vertDistance + size;
+      return { x: centerX + width / 2, y: centerY - size };
+    }
+  }
+
   drawHighlight(
     ctx: CanvasRenderingContext2D,
     cell: GridCell,
