@@ -37,6 +37,11 @@
   ```
 * Never branch from a prior feature/fix branch unless the work explicitly depends on it.
 
+# Worktree Setup
+
+* When working in a git worktree, run `npm install` in `frontend/` before making the first commit.
+  `node_modules` is not shared between worktrees and the pre-commit hook requires it.
+
 # General Instructions
 
 * You will be told if the conversation is either planning or implementation. If not told, ask.
