@@ -14,28 +14,13 @@
 .maps-header h1 {
   margin: 0;
   font-size: 2rem;
-  color: #333;
-}
-
-.create-button {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s;
-}
-
-.create-button:hover {
-  background: #0056b3;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #666;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 1.1rem;
 }
 
@@ -45,23 +30,9 @@
 }
 
 .empty-state p {
-  color: #666;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 1.2rem;
   margin-bottom: 1.5rem;
-}
-
-.empty-state button {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.empty-state button:hover {
-  background: #218838;
 }
 
 .maps-grid {
@@ -71,24 +42,24 @@
 }
 
 .map-card {
-  border: 1px solid #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
-  background: white;
+  background: #161b22;
 }
 
 .map-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .map-thumbnail {
   width: 100%;
   height: 200px;
   position: relative;
-  background: #f5f5f5;
+  background: #2c2c2c;
   overflow: hidden;
 }
 
@@ -101,7 +72,7 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #999;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 1rem;
 }
 
@@ -129,41 +100,26 @@
 .map-info h3 {
   margin: 0 0 0.5rem 0;
   font-size: 1.1rem;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .map-meta {
   margin: 0;
   font-size: 0.85rem;
-  color: #666;
-}
-
-.delete-button {
-  width: 100%;
-  background: #dc3545;
-  color: white;
-  border: none;
-  padding: 0.75rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s;
-}
-
-.delete-button:hover {
-  background: #c82333;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .join-section {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
 }
 
 .join-section h3 {
   margin: 0 0 1rem 0;
   font-size: 1.2rem;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .join-input-group {
@@ -174,24 +130,11 @@
 .join-input {
   flex: 1;
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
   font-size: 1rem;
-}
-
-.join-button {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.2s;
-}
-
-.join-button:hover {
-  background: #218838;
+  background: #0d1117;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .maps-section {
@@ -201,21 +144,31 @@
 .maps-section h2 {
   margin-bottom: 1rem;
   font-size: 1.5rem;
-  color: #333;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.leave-button {
-  width: 100%;
-  background: #ffc107;
-  color: #333;
-  border: none;
-  padding: 0.75rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s;
-  font-weight: 600;
+.map-card-actions {
+  padding: 0 0.5rem 0.5rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
-.leave-button:hover {
-  background: #e0a800;
+@media (max-width: 480px) {
+  .maps-container {
+    padding: 1rem;
+  }
+
+  .maps-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .join-section {
+    flex-direction: column;
+  }
+
+  .join-input {
+    width: 100%;
+  }
 }
