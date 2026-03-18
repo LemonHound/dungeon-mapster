@@ -18,7 +18,24 @@
 
 # Pull Requests
 
+* Before creating a PR:
+  1. Check for any open PRs (`gh pr list`). If any exist, do not submit — wait for them to merge first, then rebase and submit.
+  2. Rebase onto `origin/main` and force-push:
+     ```
+     git fetch origin
+     git rebase origin/main
+     git push --force-with-lease
+     ```
 * Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
+
+# Branch & Sync Hygiene
+
+* Before creating any implementation branch, always fetch and base it on current main:
+  ```
+  git fetch origin
+  git checkout -b <branch> origin/main
+  ```
+* Never branch from a prior feature/fix branch unless the work explicitly depends on it.
 
 # General Instructions
 

@@ -15,14 +15,14 @@
 @if (isDemo) {
   <div class="demo-banner">
     <span>You're exploring a live demo — sign up or log in to save your maps.</span>
-    <button (click)="loginAndSave()" class="demo-banner-btn">Log In</button>
+    <button (click)="loginAndSave()" class="btn btn-primary btn-sm">Log In</button>
   </div>
 }
 @if (cacheStaleMessage) {
   <div class="cache-stale-banner" [class.cache-stale-error]="cacheStaleIsError">
     <span>{{ cacheStaleMessage }}</span>
     @if (cacheStaleIsError) {
-      <button (click)="dismissCacheStale()" class="cache-stale-dismiss">Dismiss</button>
+      <button (click)="dismissCacheStale()" class="btn btn-secondary btn-sm">Dismiss</button>
     }
   </div>
 }
@@ -54,6 +54,9 @@
   </div>
 
   @if (canEdit()) {
+    @if (activePanel !== null) {
+      <div class="flyout-backdrop" role="button" tabindex="0" (click)="closePanel()" (keydown.escape)="closePanel()"></div>
+    }
     <button
       class="notes-fab"
       [class.panel-open]="activePanel !== null"
@@ -321,11 +324,11 @@
                 <span class="flyout-field-label">Join Code</span>
                 <div class="join-code-row">
                   <code class="join-code-value">{{ mapData.joinCode }}</code>
-                  <button (click)="copyJoinCode()" class="copy-btn">Copy</button>
+                  <button (click)="copyJoinCode()" class="btn btn-secondary btn-sm">Copy</button>
                 </div>
                 <div class="join-url-row">
                   <input type="text" [value]="getJoinUrl()" readonly class="flyout-input join-url-input"/>
-                  <button (click)="copyJoinUrl()" class="copy-btn">Copy URL</button>
+                  <button (click)="copyJoinUrl()" class="btn btn-secondary btn-sm">Copy URL</button>
                 </div>
               </div>
             }
@@ -399,16 +402,16 @@
                     <div class="member-actions">
                       @if (isOwner() && member.userId !== getCurrentUserId()) {
                         @if (member.role === 'PLAYER') {
-                          <button (click)="promoteMember(member.userId)" class="action-btn promote-btn" [disabled]="loadingMemberId === member.userId">Promote</button>
+                          <button (click)="promoteMember(member.userId)" class="btn btn-primary btn-sm" [disabled]="loadingMemberId === member.userId">Promote</button>
                         }
                         @if (member.role === 'DM') {
-                          <button (click)="demoteMember(member.userId)" class="action-btn demote-btn" [disabled]="loadingMemberId === member.userId">Demote</button>
-                          <button (click)="transferOwnership(member.userId)" class="action-btn transfer-btn" [disabled]="loadingMemberId === member.userId">Make Owner</button>
+                          <button (click)="demoteMember(member.userId)" class="btn btn-secondary btn-sm" [disabled]="loadingMemberId === member.userId">Demote</button>
+                          <button (click)="transferOwnership(member.userId)" class="btn btn-secondary btn-sm" [disabled]="loadingMemberId === member.userId">Make Owner</button>
                         }
-                        <button (click)="removeMember(member.userId)" class="action-btn remove-btn" [disabled]="loadingMemberId === member.userId">Remove</button>
+                        <button (click)="removeMember(member.userId)" class="btn btn-danger btn-sm" [disabled]="loadingMemberId === member.userId">Remove</button>
                       }
                       @if (!isOwner() && userRole === 'DM' && member.userId !== getCurrentUserId() && member.role === 'PLAYER') {
-                        <button (click)="promoteMember(member.userId)" class="action-btn promote-btn" [disabled]="loadingMemberId === member.userId">Promote</button>
+                        <button (click)="promoteMember(member.userId)" class="btn btn-primary btn-sm" [disabled]="loadingMemberId === member.userId">Promote</button>
                       }
                     </div>
                   </div>
@@ -419,17 +422,14 @@
 
           @if (adminTab === 'variables') {
             <div class="flyout-section">
-              @if (!manageVariablesOpen) {
-                <button class="manage-variables-btn" (click)="openManageVariables()">Manage Variables</button>
-              } @else {
+              @if (variableForm) {
                 <div class="manage-variables-panel">
                   <div class="manage-variables-header">
-                    <span class="manage-variables-title">Manage Variables</span>
-                    <button class="close-btn" (click)="closeManageVariables()">&#x2715;</button>
+                    <span class="manage-variables-title">{{ editingVariableId ? 'Edit Variable' : 'New Variable' }}</span>
+                    <button class="close-btn" (click)="cancelVariableForm()">&#x2715;</button>
                   </div>
 
-                  @if (variableForm) {
-                    <div class="variable-form">
+                  <div class="variable-form">
                       <label>
                         Name
                         <input type="text" [(ngModel)]="variableForm.name" class="flyout-input" placeholder="Variable name"/>
@@ -469,8 +469,8 @@
                         </label>
                       }
                       <div class="form-actions">
-                        <button class="save-btn" (click)="saveVariable()">Save</button>
-                        <button class="cancel-btn" (click)="cancelVariableForm()">Cancel</button>
+                        <button class="btn btn-primary btn-sm" (click)="saveVariable()">Save</button>
+                        <button class="btn btn-secondary btn-sm" (click)="cancelVariableForm()">Cancel</button>
                       </div>
 
                       @if (variableForm.dataType === 'PICKLIST') {
@@ -486,7 +486,7 @@
                             }
                             <div class="picklist-add">
                               <input type="text" [(ngModel)]="newPicklistLabel" class="flyout-input" placeholder="New value label" (keyup.enter)="addPicklistValue()"/>
-                              <button class="save-btn" (click)="addPicklistValue()">Add</button>
+                              <button class="btn btn-secondary btn-sm" (click)="addPicklistValue()">Add</button>
                             </div>
                           } @else {
                             <p class="cell-info">Save the variable first to add values.</p>
@@ -494,24 +494,23 @@
                         </div>
                       }
                     </div>
-                  } @else {
-                    <div class="variable-list">
-                      @if (variables.length === 0) {
-                        <p class="cell-info">No variables defined yet.</p>
-                      }
-                      @for (variable of variables; track variable.id) {
-                        <div class="variable-list-item">
-                          <span class="variable-list-name">{{ variable.name }}</span>
-                          <span class="variable-list-type">{{ variable.dataType }}</span>
-                          <div class="variable-list-actions">
-                            <button class="edit-btn" (click)="startEditVariable(variable)">Edit</button>
-                            <button class="delete-btn" (click)="confirmDeleteVariable(variable)">Delete</button>
-                          </div>
-                        </div>
-                      }
-                      <button class="manage-variables-btn" style="margin-top: 10px" (click)="startCreateVariableAdmin()">+ Create Variable</button>
+                </div>
+              } @else {
+                <div class="variable-list">
+                  @if (variables.length === 0) {
+                    <p class="cell-info">No variables defined yet.</p>
+                  }
+                  @for (variable of variables; track variable.id) {
+                    <div class="variable-list-item">
+                      <span class="variable-list-name">{{ variable.name }}</span>
+                      <span class="variable-list-type">{{ variable.dataType }}</span>
+                      <div class="variable-list-actions">
+                        <button class="edit-btn" (click)="startEditVariable(variable)">Edit</button>
+                        <button class="btn btn-danger btn-sm" (click)="confirmDeleteVariable(variable)">Delete</button>
+                      </div>
                     </div>
                   }
+                  <button class="btn btn-secondary" style="margin-top: 10px; width: 100%" (click)="startCreateVariableAdmin()">+ Create Variable</button>
                 </div>
               }
             </div>

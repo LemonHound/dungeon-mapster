@@ -68,7 +68,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   private gridStrategy: GridStrategy = new SquareGridStrategy();
   public hexOrientation: HexOrientation = 'flat';
 
-  private mouseDownTime = 0;
   public selectedCell: GridCell | null = null;
   public selectedCellName = '';
   private cellNameTimeout?: ReturnType<typeof setTimeout>;
@@ -92,7 +91,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   public variables: MapVariable[] = [];
   public cellVariableValues = new Map<string, CellVariableValue[]>();
-  public manageVariablesOpen = false;
   public variableForm: Partial<MapVariable> | null = null;
   public editingVariableId: string | null = null;
   public newPicklistLabel = '';
@@ -350,6 +348,9 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
             role: msg.role as UserPresence['role'],
           }];
         }
+        if (msg.userId !== this.getCurrentUserId() && this.selectedCell) {
+          this.wsService.sendSelection(this.selectedCell.row, this.selectedCell.col);
+        }
         break;
       }
       case 'USER_LEFT': {
@@ -360,8 +361,10 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
         break;
       }
       case 'SELECTION': {
-        this.remoteSelections.set(msg.userId, {userId: msg.userId, row: msg.row, col: msg.col, color: msg.color});
-        this.render();
+        if (msg.userId !== this.getCurrentUserId()) {
+          this.remoteSelections.set(msg.userId, {userId: msg.userId, row: msg.row, col: msg.col, color: msg.color});
+          this.render();
+        }
         break;
       }
       case 'FIELD_FOCUS': {
@@ -726,9 +729,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   closePanel(): void {
     this.activePanel = null;
+    this.selectedCell = null;
     if (this.editorActionsService) {
       this.editorActionsService.setDmAdminActive(false);
     }
+    this.render();
   }
 
   handleNotesFab(): void {
@@ -773,6 +778,21 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
     return colLabel + row;
   }
 
+  private drawUserBadge(ctx: CanvasRenderingContext2D, x: number, y: number, initials: string, color: string): void {
+    const r = 10;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${r}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, x, y);
+    ctx.restore();
+  }
+
   getMemberName(userId: number): string {
     return this.memberUsers.get(userId)?.name ?? `User ${userId}`;
   }
@@ -798,7 +818,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
   }
 
   startCreateVariableAdmin(): void {
-    this.manageVariablesOpen = true;
     this.variableForm = {dataType: 'TEXT', visibility: 'PLAYER_EDIT', showColorOnCells: false};
     this.editingVariableId = null;
   }
@@ -989,18 +1008,29 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
           this.gridScale
         );
         this.gridCtx.restore();
+        if (this.gridStrategy.getCellBadgePosition) {
+          const pos = this.gridStrategy.getCellBadgePosition(
+            {row: sel.row, col: sel.col},
+            this.gridSize,
+            this.gridOffsetX,
+            this.gridOffsetY,
+            this.gridScale
+          );
+          this.drawUserBadge(this.gridCtx, pos.x, pos.y, this.getMemberInitials(sel.userId), sel.color);
+        }
       });
     }
   }
 
   private setupMouseEvents(): void {
     let isDragging = false;
+    let dragMoved = false;
     let lastX = 0;
     let lastY = 0;
 
     this.gridCanvas.addEventListener('mousedown', (e) => {
-      this.mouseDownTime = Date.now();
       isDragging = true;
+      dragMoved = false;
       lastX = e.clientX;
       lastY = e.clientY;
       e.preventDefault();
@@ -1011,6 +1041,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
       const deltaX = e.clientX - lastX;
       const deltaY = e.clientY - lastY;
+      dragMoved = true;
 
       if (this.gridLocked) {
         this.offsetX += deltaX;
@@ -1029,12 +1060,11 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
     this.gridCanvas.addEventListener('mouseup', (e) => {
       isDragging = false;
-      const clickDuration = Date.now() - this.mouseDownTime;
-      if (clickDuration < 200 && this.gridLocked) {
+      if (!dragMoved && this.gridLocked) {
         const rect = this.gridCanvas.getBoundingClientRect();
         this.handleCellClick(e.clientX - rect.left, e.clientY - rect.top);
       }
-      if (!this.gridLocked && clickDuration >= 200) {
+      if (!this.gridLocked && dragMoved) {
         this.scheduleAutoSave();
       }
     });
@@ -1249,6 +1279,7 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
       }
 
       this.activePanel = 'cell';
+      this.editorActionsService.setDmAdminActive(false);
     }
 
     this.render();
@@ -1260,18 +1291,6 @@ export class MapEditor implements AfterViewInit, OnInit, OnDestroy {
 
   get editingVariable(): MapVariable | null {
     return this.variables.find(v => v.id === this.editingVariableId) ?? null;
-  }
-
-  openManageVariables(): void {
-    this.manageVariablesOpen = true;
-    this.variableForm = null;
-    this.editingVariableId = null;
-  }
-
-  closeManageVariables(): void {
-    this.manageVariablesOpen = false;
-    this.variableForm = null;
-    this.editingVariableId = null;
   }
 
   startCreateVariable(): void {

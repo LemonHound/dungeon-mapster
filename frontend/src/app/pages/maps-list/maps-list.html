@@ -1,7 +1,7 @@
 <div class="maps-container">
   <div class="maps-header">
     <h1>My Maps</h1>
-    <button (click)="createNewMap()" class="create-button">Create New Map</button>
+    <button (click)="createNewMap()" class="btn btn-primary">Create New Map</button>
   </div>
 
   <div class="join-section">
@@ -14,7 +14,7 @@
         class="join-input"
         (keyup.enter)="joinMapByCode()"
       />
-      <button (click)="joinMapByCode()" class="join-button">Join</button>
+      <button (click)="joinMapByCode()" class="btn btn-primary">Join</button>
     </div>
   </div>
 
@@ -24,7 +24,7 @@
     @if (ownedMaps.length === 0 && joinedMaps.length === 0) {
       <div class="empty-state">
         <p>No maps yet. Create your first map to get started!</p>
-        <button (click)="createNewMap()">Create Map</button>
+        <button (click)="createNewMap()" class="btn btn-primary">Create Map</button>
       </div>
     } @else {
       @if (ownedMaps.length > 0) {
@@ -49,9 +49,11 @@
                   <h3>{{ map.name }}</h3>
                   <p class="map-meta">Owner • {{ map.updatedAt | date: 'short' }}</p>
                 </div>
-                <button (click)="deleteMap(map.id!, $event)" class="delete-button"
-                        (keypress)="deleteMap(map.id!, $event)" tabindex="2">Delete
-                </button>
+                <div class="map-card-actions">
+                  <button (click)="deleteMap(map.id!, $event)" class="btn btn-danger btn-sm"
+                          (keypress)="deleteMap(map.id!, $event)" tabindex="2">Delete
+                  </button>
+                </div>
               </div>
             }
           </div>
@@ -80,9 +82,11 @@
                   <h3>{{ map.name }}</h3>
                   <p class="map-meta">{{ map.userRole }} • {{ map.updatedAt | date: 'short' }}</p>
                 </div>
-                <button (click)="leaveMap(map.id!, $event)" class="leave-button" (keypress)="leaveMap(map.id!, $event)"
-                        tabindex="1">Leave
-                </button>
+                <div class="map-card-actions">
+                  <button (click)="leaveMap(map.id!, $event)" class="btn btn-danger btn-sm" (keypress)="leaveMap(map.id!, $event)"
+                          tabindex="1">Leave
+                  </button>
+                </div>
               </div>
             }
           </div>
