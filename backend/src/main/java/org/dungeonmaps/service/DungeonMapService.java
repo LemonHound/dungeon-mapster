@@ -103,20 +103,22 @@ public class DungeonMapService {
         });
     }
 
+    public enum JoinResult { JOINED, NOT_FOUND, ALREADY_MEMBER }
+
     @Transactional
-    public boolean joinMap(String joinCode, Long userId) {
+    public JoinResult joinMap(String joinCode, Long userId) {
         Optional<DungeonMap> map = mapRepository.findByJoinCode(joinCode);
-        if (map.isEmpty()) return false;
+        if (map.isEmpty()) return JoinResult.NOT_FOUND;
 
         Long mapId = map.get().getId();
-        if (membershipRepository.existsByMapIdAndUserId(mapId, userId)) return false;
+        if (membershipRepository.existsByMapIdAndUserId(mapId, userId)) return JoinResult.ALREADY_MEMBER;
 
         MapMembership membership = new MapMembership();
         membership.setMapId(mapId);
         membership.setUserId(userId);
         membership.setRole(MapRole.PLAYER);
         membershipRepository.save(membership);
-        return true;
+        return JoinResult.JOINED;
     }
 
     @Transactional
