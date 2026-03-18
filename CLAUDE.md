@@ -16,26 +16,21 @@
 * Provide suggestions for refactoring, simplification, or modernization. Unless otherwise directed, this should always
   be initiated through a new feature/folder and spec.md file.
 
-# Pull Requests
+# Branch Hygiene
 
-* Before creating a PR:
-  1. Check for any open PRs (`gh pr list`). If any exist, do not submit — wait for them to merge first, then rebase and submit.
-  2. Rebase onto `origin/main` and force-push:
-     ```
-     git fetch origin
-     git rebase origin/main
-     git push --force-with-lease
-     ```
-* Always enable auto-merge (`gh pr merge --auto --squash`) immediately after creating a PR.
-
-# Branch & Sync Hygiene
-
-* Before creating any implementation branch, always fetch and base it on current main:
-  ```
-  git fetch origin
-  git checkout -b <branch> origin/main
-  ```
-* Never branch from a prior feature/fix branch unless the work explicitly depends on it.
+* Whenever writing code, ensure that it is up to date with the target branch
+* Whenever pulling code, check the following:
+  1. Pull all open PRs - for any open PRs, check if they are blocked due to merge conflicts.
+  2. If any PRs are blocked, resolve them immediately. If more than one is blocked in this way, go back to step 1 and
+     repeat until all PRs are unblocked.
+  3. If no PRs are blocked, wait until they are merged. This may involve replying to the conversation and requesting a
+     prompt like 'continue' before reassessing.
+  4. If there are no open PRs (e.g. nothing outstanding for main branch), proceed with the pull.
+* Whenever pushing code:
+  1. Fetch and rebase onto `origin/main`.
+  2. Scan for open PRs. If any are open, resolve them first.
+  3. Push the code
+  4. Retrieve the PR that was submitted, and check that it has no merge conflicts. If any are present, resolve them.
 
 # General Instructions
 
