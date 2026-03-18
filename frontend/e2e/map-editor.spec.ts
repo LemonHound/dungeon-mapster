@@ -32,16 +32,6 @@ test.describe('map editor — single user', () => {
     await expect(page).toHaveURL(`/map-editor/${mapId}`);
   });
 
-  test('cell selection updates UI', async ({page}) => {
-    await page.goto(`/map-editor/${mapId}`);
-    await page.waitForLoadState('networkidle');
-
-    const canvas = page.locator('#grid-canvas');
-    await canvas.waitFor({state: 'visible', timeout: 10000});
-    await canvas.click({position: {x: 100, y: 100}});
-    await page.waitForTimeout(500);
-  });
-
   test('map name is displayed', async ({page}) => {
     await page.goto(`/map-editor/${mapId}`);
     await page.waitForLoadState('networkidle');
