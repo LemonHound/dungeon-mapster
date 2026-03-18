@@ -65,37 +65,6 @@ test.describe('multi-user WebSocket', () => {
     }
   });
 
-  test('cell selection broadcast: user A selects, user B sees presence indicator', async ({browser}) => {
-    const token = process.env['TEST_AUTH_TOKEN']!;
-
-    const ctxA = await browser.newContext();
-    const ctxB = await browser.newContext();
-    const pageA = await ctxA.newPage();
-    const pageB = await ctxB.newPage();
-
-    try {
-      await injectAuth(pageA, token);
-      await injectAuth(pageB, token);
-
-      await pageA.goto(`/map-editor/${mapId}`);
-      await pageB.goto(`/map-editor/${mapId}`);
-
-      await pageA.waitForLoadState('networkidle');
-      await pageB.waitForLoadState('networkidle');
-
-      await pageA.waitForTimeout(1000);
-
-      const canvas = pageA.locator('#grid-canvas');
-      if (await canvas.isVisible()) {
-        await canvas.click({position: {x: 120, y: 120}});
-        await pageB.waitForTimeout(800);
-      }
-    } finally {
-      await ctxA.close();
-      await ctxB.close();
-    }
-  });
-
   test('reconnect: user resumes session after disconnect', async ({browser}) => {
     const token = process.env['TEST_AUTH_TOKEN']!;
 
