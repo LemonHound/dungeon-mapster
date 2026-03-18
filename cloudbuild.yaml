@@ -42,12 +42,10 @@ steps:
     id: integration-tests
     waitFor: [Push]
     entrypoint: bash
-    secretEnv: [GITHUB_TOKEN, JWT_SECRET]
+    secretEnv: [JWT_SECRET]
     args:
       - -c
       - |
-        BUILD_LOG_URL="https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$_AR_PROJECT_ID"
-
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /workspace:/workspace \
@@ -56,19 +54,7 @@ steps:
           -e SPRING_PROFILES_ACTIVE=test \
           -e JWT_SECRET=$$JWT_SECRET \
           maven:3.9-eclipse-temurin-21 \
-          mvn failsafe:integration-test failsafe:verify \
-          2>&1 | tee /workspace/integration-test-output.txt
-        MAVEN_EXIT=${PIPESTATUS[0]}
-
-        if [ "$$MAVEN_EXIT" -ne 0 ]; then
-          python3 -c "import json; log=open('/workspace/integration-test-output.txt').read()[-65000:]; p={'name':'GCP: Integration Tests','head_sha':'$COMMIT_SHA','status':'completed','conclusion':'failure','details_url':'$$BUILD_LOG_URL','output':{'title':'Integration Tests Failed','summary':'Integration tests failed on \`$COMMIT_SHA\`','text':'\`\`\`\n'+log+'\n\`\`\`'}}; print(json.dumps(p))" > /workspace/check-run.json
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/check-runs" \
-            -H "Authorization: Bearer $$GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            -d @/workspace/check-run.json || true
-          exit 1
-        fi
+          mvn failsafe:integration-test failsafe:verify
 
   # Save previous test revision, then deploy image to test Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -152,25 +138,13 @@ steps:
     args:
       - -c
       - |
-        BUILD_LOG_URL="https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$_AR_PROJECT_ID"
         DEPLOY_ID=$(cat /workspace/deploy-id)
 
         post_deployment_status() {
           curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
             -d "$1"
-        }
-
-        post_check_run() {
-          local conclusion="$1"
-          python3 -c "import json; log=open('/workspace/e2e-output.txt').read()[-65000:]; c='$conclusion'; p={'name':'GCP: E2E Tests','head_sha':'$COMMIT_SHA','status':'completed','conclusion':c,'details_url':'$$BUILD_LOG_URL','output':{'title':'E2E Test Results','summary':('All tests passed' if c=='success' else 'Tests failed — see log below'),'text':'\`\`\`\n'+log+'\n\`\`\`'}}; print(json.dumps(p))" > /workspace/check-run.json
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/check-runs" \
-            -H "Authorization: Bearer $$GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            -d @/workspace/check-run.json || true
         }
 
         if [ -f /workspace/e2e-failed ]; then
@@ -180,8 +154,7 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
-          post_check_run failure
-          post_deployment_status "{\"state\":\"failure\",\"description\":\"E2E tests failed — test environment rolled back\",\"log_url\":\"$$BUILD_LOG_URL\"}"
+          post_deployment_status '{"state":"failure","description":"E2E tests failed — test environment rolled back"}'
           exit 1
         fi
 
@@ -204,12 +177,11 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
-          post_deployment_status "{\"state\":\"failure\",\"description\":\"Prod deploy failed — rolled back\",\"log_url\":\"$$BUILD_LOG_URL\"}"
+          post_deployment_status '{"state":"failure","description":"Prod deploy failed — rolled back"}'
           exit 1
         }
 
-        post_check_run success
-        post_deployment_status "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\",\"log_url\":\"$$BUILD_LOG_URL\"}"
+        post_deployment_status "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\"}"
 
 availableSecrets:
   secretManager:
