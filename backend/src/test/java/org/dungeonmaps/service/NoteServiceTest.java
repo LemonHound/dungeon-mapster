@@ -4,7 +4,6 @@ import org.dungeonmaps.model.CellNote;
 import org.dungeonmaps.model.MapNote;
 import org.dungeonmaps.repository.CellNoteRepository;
 import org.dungeonmaps.repository.MapNoteRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,12 +33,6 @@ class NoteServiceTest {
     private static final Long USER_B = 20L;
     private static final int ROW = 2;
     private static final int COL = 3;
-
-    @BeforeEach
-    void setUp() {
-        when(cellNoteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(mapNoteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-    }
 
     @Test
     void getCellNotes_sharedNote_returnedForAnyMember() {
