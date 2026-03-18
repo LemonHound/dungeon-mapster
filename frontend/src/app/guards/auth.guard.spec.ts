@@ -2,6 +2,7 @@ import {TestBed} from '@angular/core/testing';
 import {ActivatedRouteSnapshot, Router, RouterStateSnapshot, provideRouter} from '@angular/router';
 import {provideHttpClient} from '@angular/common/http';
 import {provideHttpClientTesting} from '@angular/common/http/testing';
+import {vi} from 'vitest';
 import {AuthService} from '../services/auth.service';
 import {authGuard} from './auth.guard';
 
@@ -22,7 +23,7 @@ describe('authGuard', () => {
 
     TestBed.inject(AuthService);
     router = TestBed.inject(Router);
-    spyOn(router, 'navigate');
+    vi.spyOn(router, 'navigate').mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -36,7 +37,7 @@ describe('authGuard', () => {
       authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot)
     );
 
-    expect(result).toBeTrue();
+    expect(result).toBe(true);
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
@@ -45,7 +46,7 @@ describe('authGuard', () => {
       authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot)
     );
 
-    expect(result).toBeFalse();
+    expect(result).toBe(false);
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 });

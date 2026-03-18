@@ -40,7 +40,7 @@ describe('authInterceptor', () => {
     http.get('/api/test').subscribe();
 
     const req = httpMock.expectOne('/api/test');
-    expect(req.request.headers.has('Authorization')).toBeFalse();
+    expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush({});
   });
 });
