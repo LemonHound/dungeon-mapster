@@ -90,7 +90,7 @@ class DungeonMapServiceTest {
     @Test
     void joinMap_falseWhenJoinCodeNotFound() {
         when(mapRepository.findByJoinCode("invalid")).thenReturn(Optional.empty());
-        assertThat(service.joinMap("invalid", 1L)).isFalse();
+        assertThat(service.joinMap("invalid", 1L)).isEqualTo(DungeonMapService.JoinResult.NOT_FOUND);
     }
 
     @Test
@@ -99,7 +99,7 @@ class DungeonMapServiceTest {
         map.setId(1L);
         when(mapRepository.findByJoinCode("CODE")).thenReturn(Optional.of(map));
         when(membershipRepository.existsByMapIdAndUserId(1L, 2L)).thenReturn(true);
-        assertThat(service.joinMap("CODE", 2L)).isFalse();
+        assertThat(service.joinMap("CODE", 2L)).isEqualTo(DungeonMapService.JoinResult.ALREADY_MEMBER);
     }
 
     @Test
@@ -109,7 +109,7 @@ class DungeonMapServiceTest {
         when(mapRepository.findByJoinCode("CODE")).thenReturn(Optional.of(map));
         when(membershipRepository.existsByMapIdAndUserId(1L, 2L)).thenReturn(false);
 
-        assertThat(service.joinMap("CODE", 2L)).isTrue();
+        assertThat(service.joinMap("CODE", 2L)).isEqualTo(DungeonMapService.JoinResult.JOINED);
 
         ArgumentCaptor<MapMembership> captor = ArgumentCaptor.forClass(MapMembership.class);
         verify(membershipRepository).save(captor.capture());

@@ -4,6 +4,9 @@
 2. Each of these folders will have a spec.md file
 3. Design conversation: reference CLAUDE.md + provided spec.md, refine the approach
 4. Update spec.md with final design, create adr.md if significant changes to architecture will be made
+   Each spec must include a **Test Cases** section listing every new scenario, which tier it belongs to
+   (unit / API integration / E2E / manual), and the concrete test name. A feature is not considered complete
+   until all automated test cases pass in CI and any manual cases are documented in the manual checklist.
 5. Implementation conversation: reference CLAUDE.md + finalized spec.md
 
 # Conversation Preferences

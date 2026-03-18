@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -58,5 +59,24 @@ class GcsUploadIT {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.imageUrl").isNotEmpty());
+    }
+
+    @Test
+    void downloadImage_byFilename_returnsFile() throws Exception {
+        byte[] imageBytes = new byte[512];
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "download-test.png", "image/png", imageBytes);
+
+        String uploadResponse = mockMvc.perform(multipart("/api/upload/image")
+                        .file(file)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        String filename = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(uploadResponse).get("imageUrl").asText();
+
+        mockMvc.perform(get("/api/upload/image/" + filename))
+                .andExpect(status().isOk());
     }
 }

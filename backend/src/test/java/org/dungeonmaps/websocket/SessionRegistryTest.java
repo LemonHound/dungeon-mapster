@@ -62,6 +62,16 @@ class SessionRegistryTest {
     }
 
     @Test
+    void getUsersForMap_returnsAllConnectedUserIds() {
+        registry.register(session("s1", 10L, 42L, MapRole.OWNER, "Red"));
+        registry.register(session("s2", 20L, 42L, MapRole.PLAYER, "Blue"));
+        registry.register(session("s3", 30L, 99L, MapRole.DM, "Green"));
+
+        List<UserSession> result = registry.getSessionsForMap(42L);
+        assertThat(result).extracting(UserSession::getUserId).containsExactlyInAnyOrder(10L, 20L);
+    }
+
+    @Test
     void assignColor_wrapsAroundWhenAllColorsUsed() {
         String[] colors = {"Red", "Blue", "Green", "Purple", "Orange", "Teal", "Pink", "Amber"};
         for (int i = 0; i < colors.length; i++) {
