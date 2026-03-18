@@ -170,6 +170,7 @@ test.describe('multi-user WebSocket', () => {
       await pageA.waitForLoadState('networkidle');
       await pageB.goto(`/map-editor/${mapId}`);
       await pageB.waitForLoadState('networkidle');
+      await pageB.locator('button:text("Variables")').click();
 
       const res = await request.post(`/api/maps/${mapId}/variables`, {
         headers: {Authorization: `Bearer ${token}`},
@@ -178,7 +179,6 @@ test.describe('multi-user WebSocket', () => {
       expect(res.ok()).toBeTruthy();
       const variable = await res.json();
 
-      await pageB.waitForTimeout(1500);
       await expect(pageB.locator(`text=MP Variable`)).toBeVisible({timeout: 5000});
 
       await request.delete(`/api/maps/${mapId}/variables/${variable.id}`, {
