@@ -46,6 +46,14 @@ steps:
     args:
       - -c
       - |
+        # Look up PR number for this commit; persist for later steps
+        curl -sf \
+          -H "Authorization: Bearer $$GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/LemonHound/dungeon-mapster/commits/$COMMIT_SHA/pulls" \
+          | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['number'] if d else '')" \
+          > /workspace/pr-number 2>/dev/null || echo "" > /workspace/pr-number
+
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v /workspace:/workspace \
@@ -54,8 +62,26 @@ steps:
           -e SPRING_PROFILES_ACTIVE=test \
           -e JWT_SECRET=$$JWT_SECRET \
           maven:3.9-eclipse-temurin-21 \
-          mvn failsafe:integration-test failsafe:verify -q \
-        || {
+          mvn failsafe:integration-test failsafe:verify \
+          2>&1 | tee /workspace/integration-test-output.txt
+        MAVEN_EXIT=${PIPESTATUS[0]}
+
+        if [ "$$MAVEN_EXIT" -ne 0 ]; then
+          PR=$(cat /workspace/pr-number)
+          if [ -n "$$PR" ]; then
+            python3 -c '
+import json
+log = open("/workspace/integration-test-output.txt").read()[-6000:]
+body = ":x: **Integration tests failed** on `$COMMIT_SHA`\n\n<details><summary>Log excerpt</summary>\n\n```\n" + log + "\n```\n\n</details>"
+print(json.dumps({"body": body}))
+' > /workspace/comment.json
+            curl -sf -X POST \
+              "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
+              -H "Authorization: Bearer $$GITHUB_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @/workspace/comment.json || true
+          fi
+
           DEPLOY_ID=$(curl -sf -X POST https://api.github.com/repos/LemonHound/dungeon-mapster/deployments \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
@@ -66,7 +92,7 @@ steps:
             -H "Content-Type: application/json" \
             -d '{"state":"failure","description":"Integration tests failed"}'
           exit 1
-        }
+        fi
 
   # Save previous test revision, then deploy image to test Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -132,7 +158,12 @@ steps:
         TEST_AUTH_TOKEN="$$FRESH_TOKEN" \
         WS_USER_COUNT=3 \
         npx playwright test \
-        || echo "failed" > /workspace/e2e-failed
+        2>&1 | tee /workspace/e2e-output.txt
+        PLAY_EXIT=${PIPESTATUS[0]}
+
+        if [ "$$PLAY_EXIT" -ne 0 ]; then
+          echo "failed" > /workspace/e2e-failed
+        fi
 
         exit 0
 
@@ -154,6 +185,22 @@ steps:
             -d "$1"
         }
 
+        post_pr_comment() {
+          PR=$(cat /workspace/pr-number 2>/dev/null)
+          if [ -z "$$PR" ]; then return; fi
+          python3 -c '
+import json
+log = open("/workspace/e2e-output.txt").read()[-6000:]
+body = ":x: **E2E tests failed** on `$COMMIT_SHA`\n\n<details><summary>Log excerpt</summary>\n\n```\n" + log + "\n```\n\n</details>"
+print(json.dumps({"body": body}))
+' > /workspace/comment.json
+          curl -sf -X POST \
+            "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
+            -H "Authorization: Bearer $$GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/workspace/comment.json || true
+        }
+
         if [ -f /workspace/e2e-failed ]; then
           PREV=$(cat /workspace/prev-test-revision)
           if [ -n "$$PREV" ]; then
@@ -161,6 +208,7 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
+          post_pr_comment
           post_status '{"state":"failure","description":"E2E tests failed — test environment rolled back"}'
           exit 1
         fi
