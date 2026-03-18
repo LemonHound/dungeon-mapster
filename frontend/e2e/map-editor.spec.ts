@@ -41,6 +41,7 @@ test.describe('map editor — single user', () => {
   test('selectCell_updatesDetailPanel', async ({page}) => {
     await page.goto(`/map-editor/${mapId}`);
     await page.waitForLoadState('networkidle');
+    await page.keyboard.press('Escape');
     await page.locator('#map-canvas').click({position: {x: 100, y: 100}});
     await expect(page.locator('.flyout-cell.open')).toBeVisible({timeout: 10000});
   });
@@ -56,6 +57,7 @@ test.describe('map editor — single user', () => {
 
     await page.goto(`/map-editor/${mapId}`);
     await page.waitForLoadState('networkidle');
+    await page.keyboard.press('Escape');
     await page.locator('#map-canvas').click({position: {x: 100, y: 100}});
     await expect(page.locator('text=E2E Variable')).toBeVisible({timeout: 10000});
 
