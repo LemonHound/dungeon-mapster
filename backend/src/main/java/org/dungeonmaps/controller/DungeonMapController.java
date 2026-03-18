@@ -112,12 +112,14 @@ public class DungeonMapController {
         String joinCode = body.get("joinCode");
         if (joinCode == null || joinCode.isBlank()) return ResponseEntity.badRequest().build();
 
-        boolean joined = service.joinMap(joinCode, userId);
-        if (!joined) return ResponseEntity.badRequest().build();
-
-        return service.getMapByJoinCode(joinCode)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(500).build());
+        DungeonMapService.JoinResult result = service.joinMap(joinCode, userId);
+        return switch (result) {
+            case NOT_FOUND -> ResponseEntity.notFound().build();
+            case ALREADY_MEMBER -> ResponseEntity.status(409).build();
+            case JOINED -> service.getMapByJoinCode(joinCode)
+                    .map(ResponseEntity::ok)
+                    .orElse(ResponseEntity.status(500).build());
+        };
     }
 
     @GetMapping("/{id}/members")

@@ -120,6 +120,93 @@ class DungeonMapControllerIT extends IntegrationTestBase {
     }
 
     @Test
+    void getMapById_returnsCorrectMap() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Find Me", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+
+        mockMvc.perform(get("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Find Me"))
+                .andExpect(jsonPath("$.id").value(mapId));
+    }
+
+    @Test
+    void getMapById_notFound_returns404() throws Exception {
+        mockMvc.perform(get("/api/maps/999999")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateMap_asOwner_persistsName() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Before Update", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+        String joinCode = objectMapper.readTree(createResponse).get("joinCode").asText();
+
+        Map<String, Object> update = Map.of("name", "After Update", "gridType", "square", "gridSize", 40,
+                "gridOffsetX", 0.0, "gridOffsetY", 0.0, "gridRotation", 0.0, "gridScale", 1.0,
+                "mapOffsetX", 0.0, "mapOffsetY", 0.0, "mapScale", 1.0);
+
+        mockMvc.perform(put("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("After Update"));
+    }
+
+    @Test
+    void deleteMap_asOwner_removesMapAndMemberships() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "To Delete", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+
+        mockMvc.perform(delete("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(mapRepository.findById(mapId)).isEmpty();
+        assertThat(membershipRepository.findByMapId(mapId)).isEmpty();
+    }
+
+    @Test
+    void deleteMap_asNonOwner_returns403() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/maps")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Owner Map", "gridType", "square", "gridSize", 40))))
+                .andReturn().getResponse().getContentAsString();
+
+        Long mapId = objectMapper.readTree(createResponse).get("id").asLong();
+
+        User other = new User();
+        other.setEmail("other@example.com");
+        other.setName("Other");
+        other.setGoogleId("google-other");
+        Long otherId = userRepository.save(other).getId();
+        String otherToken = jwtTokenProvider.generateToken(otherId, "other@example.com");
+
+        mockMvc.perform(delete("/api/maps/" + mapId)
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void getMap_withoutAuth_returns401() throws Exception {
         mockMvc.perform(get("/api/maps"))
                 .andExpect(status().isUnauthorized());
