@@ -170,7 +170,6 @@ test.describe('multi-user WebSocket', () => {
       await pageA.waitForLoadState('networkidle');
       await pageB.goto(`/map-editor/${mapId}`);
       await pageB.waitForLoadState('networkidle');
-      await pageB.locator('.flyout-backdrop').click();
       await pageB.locator('button:text("Variables")').click();
 
       const res = await request.post(`/api/maps/${mapId}/variables`, {
