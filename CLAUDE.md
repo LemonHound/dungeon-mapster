@@ -34,6 +34,7 @@
   2. Scan for open PRs. If any are open, resolve them first.
   3. Push the code
   4. Retrieve the PR that was submitted, and check that it has no merge conflicts. If any are present, resolve them.
+  5. Enable auto-merge on the PR: `gh pr merge <number> --auto --squash`
 
 # General Instructions
 
