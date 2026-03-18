@@ -69,12 +69,7 @@ steps:
         if [ "$$MAVEN_EXIT" -ne 0 ]; then
           PR=$(cat /workspace/pr-number)
           if [ -n "$$PR" ]; then
-            python3 -c '
-import json
-log = open("/workspace/integration-test-output.txt").read()[-6000:]
-body = ":x: **Integration tests failed** on `$COMMIT_SHA`\n\n<details><summary>Log excerpt</summary>\n\n```\n" + log + "\n```\n\n</details>"
-print(json.dumps({"body": body}))
-' > /workspace/comment.json
+            python3 -c "import json; log = open('/workspace/integration-test-output.txt').read()[-6000:]; body = ':x: **Integration tests failed** on \`$COMMIT_SHA\`\n\n<details><summary>Log excerpt</summary>\n\n\`\`\`\n' + log + '\n\`\`\`\n\n</details>'; print(json.dumps({'body': body}))" > /workspace/comment.json
             curl -sf -X POST \
               "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
               -H "Authorization: Bearer $$GITHUB_TOKEN" \
@@ -188,12 +183,7 @@ print(json.dumps({"body": body}))
         post_pr_comment() {
           PR=$(cat /workspace/pr-number 2>/dev/null)
           if [ -z "$$PR" ]; then return; fi
-          python3 -c '
-import json
-log = open("/workspace/e2e-output.txt").read()[-6000:]
-body = ":x: **E2E tests failed** on `$COMMIT_SHA`\n\n<details><summary>Log excerpt</summary>\n\n```\n" + log + "\n```\n\n</details>"
-print(json.dumps({"body": body}))
-' > /workspace/comment.json
+          python3 -c "import json; log = open('/workspace/e2e-output.txt').read()[-6000:]; body = ':x: **E2E tests failed** on \`$COMMIT_SHA\`\n\n<details><summary>Log excerpt</summary>\n\n\`\`\`\n' + log + '\n\`\`\`\n\n</details>'; print(json.dumps({'body': body}))" > /workspace/comment.json
           curl -sf -X POST \
             "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
