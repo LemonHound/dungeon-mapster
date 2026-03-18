@@ -46,13 +46,7 @@ steps:
     args:
       - -c
       - |
-        # Look up PR number for this commit (search handles squash-merge SHAs)
-        curl -sf \
-          -H "Authorization: Bearer $$GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          "https://api.github.com/search/issues?q=repo:LemonHound/dungeon-mapster+is:pr+$COMMIT_SHA" \
-          | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['items'][0]['number'] if d.get('items') else '')" \
-          > /workspace/pr-number 2>/dev/null || echo "" > /workspace/pr-number
+        BUILD_LOG_URL="https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$_AR_PROJECT_ID"
 
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
@@ -67,25 +61,12 @@ steps:
         MAVEN_EXIT=${PIPESTATUS[0]}
 
         if [ "$$MAVEN_EXIT" -ne 0 ]; then
-          PR=$(cat /workspace/pr-number)
-          if [ -n "$$PR" ]; then
-            python3 -c "import json; log = open('/workspace/integration-test-output.txt').read()[-6000:]; body = ':x: **Integration tests failed** on \`$COMMIT_SHA\`\n\n<details><summary>Log excerpt</summary>\n\n\`\`\`\n' + log + '\n\`\`\`\n\n</details>'; print(json.dumps({'body': body}))" > /workspace/comment.json
-            curl -sf -X POST \
-              "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
-              -H "Authorization: Bearer $$GITHUB_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d @/workspace/comment.json || true
-          fi
-
-          DEPLOY_ID=$(curl -sf -X POST https://api.github.com/repos/LemonHound/dungeon-mapster/deployments \
+          python3 -c "import json; log=open('/workspace/integration-test-output.txt').read()[-65000:]; p={'name':'GCP: Integration Tests','head_sha':'$COMMIT_SHA','status':'completed','conclusion':'failure','details_url':'$$BUILD_LOG_URL','output':{'title':'Integration Tests Failed','summary':'Integration tests failed on \`$COMMIT_SHA\`','text':'\`\`\`\n'+log+'\n\`\`\`'}}; print(json.dumps(p))" > /workspace/check-run.json
+          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/check-runs" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
-            -d "{\"ref\":\"$COMMIT_SHA\",\"environment\":\"production\",\"auto_merge\":false,\"required_contexts\":[]}" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
-            -H "Authorization: Bearer $$GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"state":"failure","description":"Integration tests failed"}'
+            -d @/workspace/check-run.json || true
           exit 1
         fi
 
@@ -171,24 +152,25 @@ steps:
     args:
       - -c
       - |
+        BUILD_LOG_URL="https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$_AR_PROJECT_ID"
         DEPLOY_ID=$(cat /workspace/deploy-id)
 
-        post_status() {
+        post_deployment_status() {
           curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
             -d "$1"
         }
 
-        post_pr_comment() {
-          PR=$(cat /workspace/pr-number 2>/dev/null)
-          if [ -z "$$PR" ]; then return; fi
-          python3 -c "import json; log = open('/workspace/e2e-output.txt').read()[-6000:]; body = ':x: **E2E tests failed** on \`$COMMIT_SHA\`\n\n<details><summary>Log excerpt</summary>\n\n\`\`\`\n' + log + '\n\`\`\`\n\n</details>'; print(json.dumps({'body': body}))" > /workspace/comment.json
-          curl -sf -X POST \
-            "https://api.github.com/repos/LemonHound/dungeon-mapster/issues/$$PR/comments" \
+        post_check_run() {
+          local conclusion="$1"
+          python3 -c "import json; log=open('/workspace/e2e-output.txt').read()[-65000:]; c='$conclusion'; p={'name':'GCP: E2E Tests','head_sha':'$COMMIT_SHA','status':'completed','conclusion':c,'details_url':'$$BUILD_LOG_URL','output':{'title':'E2E Test Results','summary':('All tests passed' if c=='success' else 'Tests failed — see log below'),'text':'\`\`\`\n'+log+'\n\`\`\`'}}; print(json.dumps(p))" > /workspace/check-run.json
+          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/check-runs" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
-            -d @/workspace/comment.json || true
+            -d @/workspace/check-run.json || true
         }
 
         if [ -f /workspace/e2e-failed ]; then
@@ -198,8 +180,8 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
-          post_pr_comment
-          post_status '{"state":"failure","description":"E2E tests failed — test environment rolled back"}'
+          post_check_run failure
+          post_deployment_status "{\"state\":\"failure\",\"description\":\"E2E tests failed — test environment rolled back\",\"log_url\":\"$$BUILD_LOG_URL\"}"
           exit 1
         fi
 
@@ -222,11 +204,12 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
-          post_status "{\"state\":\"failure\",\"description\":\"Prod deploy failed — rolled back\"}"
+          post_deployment_status "{\"state\":\"failure\",\"description\":\"Prod deploy failed — rolled back\",\"log_url\":\"$$BUILD_LOG_URL\"}"
           exit 1
         }
 
-        post_status "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\"}"
+        post_check_run success
+        post_deployment_status "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\",\"log_url\":\"$$BUILD_LOG_URL\"}"
 
 availableSecrets:
   secretManager:
