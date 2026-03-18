@@ -32,8 +32,15 @@
 * Whenever pushing code:
   1. Fetch and rebase onto `origin/main`.
   2. Scan for open PRs. If any are open, resolve them first.
-  3. Push the code
+  3. Push the code.
   4. Retrieve the PR that was submitted, and check that it has no merge conflicts. If any are present, resolve them.
+  5. Enable auto-merge: `gh pr merge <number> --auto --squash`
+* For implementation pushes (any change to runtime behavior — features, bug fixes where a test could plausibly fail):
+  6. Watch GitHub Actions inline: `gh run watch`. If CI fails, fix immediately and push again.
+  7. Once the PR is merged, continue with new work. Do **not** block waiting for GCP Cloud Build
+     (runs post-merge, takes ~10–15 min). At the start of the **next** conversation, check the merged
+     PR for a Cloud Build failure comment before starting new work. Fix any GCP failures as the first
+     priority before new features.
 
 # General Instructions
 
