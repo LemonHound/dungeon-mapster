@@ -34,7 +34,7 @@ public class DungeonMapController {
     public ResponseEntity<DungeonMap> getMapById(@PathVariable Long id, Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
         if (!service.hasRole(id, userId, MapRole.OWNER, MapRole.DM, MapRole.PLAYER)) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(403).build();
         }
         return service.getMapById(id)
                 .map(ResponseEntity::ok)
