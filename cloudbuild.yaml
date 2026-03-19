@@ -144,7 +144,7 @@ steps:
           curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
             -H "Authorization: Bearer $$GITHUB_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "$1"
+            -d "$1" || true
         }
 
         if [ -f /workspace/e2e-failed ]; then
