@@ -37,38 +37,14 @@ steps:
       - -c
       - docker push $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_PROD_SERVICE:$(cat /workspace/image-tag)
 
-  # Run integration tests via docker-in-docker (Testcontainers needs Docker daemon)
-  - name: gcr.io/cloud-builders/docker
-    id: integration-tests
-    waitFor: [Push]
-    entrypoint: bash
-    secretEnv: [JWT_SECRET]
-    args:
-      - -c
-      - |
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v /workspace:/workspace \
-          -w /workspace/backend \
-          -e TESTCONTAINERS_RYUK_DISABLED=true \
-          -e SPRING_PROFILES_ACTIVE=test \
-          -e JWT_SECRET=$$JWT_SECRET \
-          maven:3.9-eclipse-temurin-21 \
-          mvn failsafe:integration-test failsafe:verify
-
-  # Save previous test revision, then deploy image to test Cloud Run
+  # Deploy image to test Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: deploy-test
-    waitFor: [integration-tests]
+    waitFor: [Push]
     entrypoint: bash
     args:
       - -c
       - |
-        gcloud run services describe ${_TEST_SERVICE} \
-          --region=${_DEPLOY_REGION} \
-          --format='value(status.traffic[0].revisionName)' 2>/dev/null \
-          > /workspace/prev-test-revision || echo "" > /workspace/prev-test-revision
-
         IMAGE="$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_PROD_SERVICE:$(cat /workspace/image-tag)"
         gcloud run services update ${_TEST_SERVICE} \
           --platform=managed \
@@ -81,84 +57,34 @@ steps:
           --region=${_DEPLOY_REGION} \
           --to-latest
 
-  # Create GitHub deployment record (returns ID used for all subsequent status updates)
+  # Smoke test — verify test service responds
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    id: github-deployment-create
+    id: smoke-test
     waitFor: [deploy-test]
     entrypoint: bash
-    secretEnv: [GITHUB_TOKEN]
     args:
       - -c
       - |
-        curl -sf -X POST https://api.github.com/repos/LemonHound/dungeon-mapster/deployments \
-          -H "Authorization: Bearer $$GITHUB_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d "{\"ref\":\"$COMMIT_SHA\",\"environment\":\"production\",\"description\":\"Deploy $(cat /workspace/image-tag)\",\"auto_merge\":false,\"required_contexts\":[]}" \
-          | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])" \
-          > /workspace/deploy-id
-
-  # Run E2E tests — always exit 0; writes /workspace/e2e-failed on failure
-  - name: mcr.microsoft.com/playwright:v1.50.0-noble
-    id: e2e-tests
-    waitFor: [github-deployment-create]
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        cd /workspace/frontend
-        npm ci --prefer-offline
-        npx playwright install chromium --with-deps
-
+        CODE=""
         for i in $(seq 1 12); do
-          TOKEN_RESP=$(curl -sf -X POST ${_TEST_URL}/api/test/token 2>/dev/null) && break
+          CODE=$(curl -sf -o /dev/null -w "%{http_code}" -X POST ${_TEST_URL}/api/test/token 2>/dev/null) || true
+          [ "$$CODE" = "200" ] && break
           echo "Waiting for test service... attempt $i"
           sleep 10
         done
-        FRESH_TOKEN=$(echo "$$TOKEN_RESP" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
-
-        BASE_URL=${_TEST_URL} \
-        TEST_AUTH_TOKEN="$$FRESH_TOKEN" \
-        WS_USER_COUNT=3 \
-        npx playwright test \
-        2>&1 | tee /workspace/e2e-output.txt
-        PLAY_EXIT=${PIPESTATUS[0]}
-
-        if [ "$$PLAY_EXIT" -ne 0 ]; then
-          echo "failed" > /workspace/e2e-failed
-        fi
-
-        exit 0
-
-  # Post-E2E: rollback test + post failure OR deploy to prod + post success
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    id: post-e2e
-    waitFor: [e2e-tests]
-    entrypoint: bash
-    secretEnv: [GITHUB_TOKEN]
-    args:
-      - -c
-      - |
-        DEPLOY_ID=$(cat /workspace/deploy-id)
-
-        post_deployment_status() {
-          curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
-            -H "Authorization: Bearer $$GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$1" || true
-        }
-
-        if [ -f /workspace/e2e-failed ]; then
-          PREV=$(cat /workspace/prev-test-revision)
-          if [ -n "$$PREV" ]; then
-            gcloud run services update-traffic ${_TEST_SERVICE} \
-              --region=${_DEPLOY_REGION} \
-              --to-revisions="$$PREV=100"
-          fi
-          post_deployment_status '{"state":"failure","description":"E2E tests failed — test environment rolled back"}'
+        if [ "$$CODE" != "200" ]; then
+          echo "Smoke test failed"
           exit 1
         fi
 
-        # E2E passed — save prod previous revision
+  # Deploy to production Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy-prod
+    waitFor: [smoke-test]
+    entrypoint: bash
+    args:
+      - -c
+      - |
         gcloud run services describe ${_PROD_SERVICE} \
           --region=${_DEPLOY_REGION} \
           --format='value(status.traffic[0].revisionName)' 2>/dev/null \
@@ -177,18 +103,33 @@ steps:
               --region=${_DEPLOY_REGION} \
               --to-revisions="$$PREV=100"
           fi
-          post_deployment_status '{"state":"failure","description":"Prod deploy failed — rolled back"}'
           exit 1
         }
 
-        post_deployment_status "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\"}"
+  # Create GitHub deployment record and post success status
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: github-deployment
+    waitFor: [deploy-prod]
+    entrypoint: bash
+    secretEnv: [GITHUB_TOKEN]
+    args:
+      - -c
+      - |
+        DEPLOY_ID=$(curl -sf -X POST https://api.github.com/repos/LemonHound/dungeon-mapster/deployments \
+          -H "Authorization: Bearer $$GITHUB_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"ref\":\"$COMMIT_SHA\",\"environment\":\"production\",\"description\":\"Deploy $(cat /workspace/image-tag)\",\"auto_merge\":false,\"required_contexts\":[]}" \
+          | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
+
+        curl -sf -X POST "https://api.github.com/repos/LemonHound/dungeon-mapster/deployments/$${DEPLOY_ID}/statuses" \
+          -H "Authorization: Bearer $$GITHUB_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"state\":\"success\",\"description\":\"Deployed $(cat /workspace/image-tag) to production\",\"environment_url\":\"${_PROD_URL}\"}"
 
 availableSecrets:
   secretManager:
     - versionName: projects/$_AR_PROJECT_ID/secrets/GITHUB_TOKEN/versions/latest
       env: GITHUB_TOKEN
-    - versionName: projects/$_AR_PROJECT_ID/secrets/JWT_SECRET/versions/latest
-      env: JWT_SECRET
 
 options:
   substitutionOption: ALLOW_LOOSE

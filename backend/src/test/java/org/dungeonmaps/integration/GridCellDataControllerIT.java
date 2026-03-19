@@ -73,7 +73,8 @@ class GridCellDataControllerIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.rowIndex").value(1))
                 .andExpect(jsonPath("$.colIndex").value(2));
 
-        mockMvc.perform(get("/api/grid-cells/" + mapId + "/1/2"))
+        mockMvc.perform(get("/api/grid-cells/" + mapId + "/1/2")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Cave Entrance"));
     }

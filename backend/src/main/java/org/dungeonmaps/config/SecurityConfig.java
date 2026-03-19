@@ -1,5 +1,6 @@
 package org.dungeonmaps.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.dungeonmaps.security.JwtAuthenticationFilter;
 import org.dungeonmaps.security.OAuth2AuthenticationSuccessHandler;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +47,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/test/token").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")))
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(successHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
