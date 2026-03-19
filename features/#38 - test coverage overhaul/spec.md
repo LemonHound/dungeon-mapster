@@ -6,20 +6,28 @@ Implementation
 
 ## Purpose
 
-Expand the test suite from the current minimal smoke-test coverage to a comprehensive set of automated tests that
-validates all primary application scenarios, plus a documented manual checklist for scenarios where automated testing
-would introduce more flakiness than value.
+Expand the test suite from the current minimal smoke-test coverage to a comprehensive set of automated tests
+that validates all primary application scenarios, plus a documented manual checklist for scenarios where
+automated testing would introduce more flakiness than value.
 
-Also update CLAUDE.md to mandate that every future feature spec includes a test cases section, ensuring new
-functionality is always tested as part of its own implementation.
+Modernize the testing infrastructure with: structured PR feedback via GitHub Actions step summaries,
+E2E artifact capture for debuggable failures, and a shared test data factory that keeps integration tests
+isolated, parallelism-safe, and maintainable as the suite grows.
 
-## CLAUDE.md Update
+Also update CLAUDE.md to mandate that every future feature spec includes a test cases section and that
+test implementations are initially proposed by the implementing LLM and refined through review.
 
-Add the following to the "Adding a New Feature" section after step 4:
+---
+
+## CLAUDE.md Updates
+
+Add to the "Adding a New Feature" section after step 4:
 
 > Each spec must include a **Test Cases** section listing every new scenario, which tier it belongs to
 > (unit / API integration / E2E / manual), and the concrete test name. A feature is not considered complete
 > until all automated test cases pass in CI and any manual cases are documented in the manual checklist.
+> Test implementations are initially proposed by the implementing LLM based on the spec's test cases section
+> and refined through review before the spec is finalized.
 
 ---
 
@@ -61,9 +69,7 @@ web apps — most bugs live at the boundary between layers, not in isolated unit
 
 ## Execution & Infrastructure
 
-### How each tier runs
-
-#### Unit tests — GitHub Actions PR gate
+### Unit tests — GitHub Actions PR gate
 
 Command: `mvn test -q` (backend) and `npm test -- --watch false` (frontend Vitest).
 
@@ -73,37 +79,56 @@ No Docker, no database, no network calls. These must stay fast — under two min
 The backend runner uses a dummy `JWT_SECRET` env var and placeholder values for GCS and OAuth credentials
 (already configured in `ci.yml`). No new CI configuration is needed for any new unit tests.
 
-#### API integration tests — Cloud Build, post-image-build
+#### PR test summaries
+
+Both the backend and frontend jobs publish structured test results to the GitHub Actions step summary so
+that failed test names and messages appear inline on the PR without digging into raw logs.
+
+- Backend: Maven Surefire writes JUnit XML to `target/surefire-reports/`. The `mikepenz/action-junit-report`
+  action reads that XML and annotates the PR with failed test names.
+- Frontend: Vitest's built-in `junit` reporter writes XML to `test-results/`. Same action reads it.
+
+Both are additive to `ci.yml` — no structural changes to the pipeline.
+
+---
+
+### API integration tests — Cloud Build, post-image-build
 
 Command: `mvn failsafe:integration-test failsafe:verify -q`, run inside a `maven:3.9-eclipse-temurin-21`
 Docker container with the Docker socket mounted (docker-in-docker). This is already how the pipeline works.
 
-Testcontainers spins up an ephemeral PostgreSQL container per test run. The container is destroyed when
-the tests complete. No persistent test database is used or needed for this tier.
+Testcontainers spins up an ephemeral PostgreSQL container for the entire Maven Failsafe run. The container
+is destroyed when the run completes. No cleanup between test methods is needed or performed — see
+**Test Isolation Contract** below.
 
-The `JWT_SECRET` is injected from Secret Manager. GCS calls in integration tests hit the real
-`dungeon-mapster-test` bucket (already provisioned).
+**File naming is the key**: Maven Failsafe includes `**/*IT.java` and Surefire excludes it. All integration
+test classes must end in `IT.java`. This convention is already established — no `pom.xml` changes needed.
 
-**File naming is the key**: Maven Failsafe includes `**/*IT.java` and Surefire excludes it. All new
-integration test classes must end in `IT.java` to run here and not in the PR gate. This convention is
-already established in the codebase — no `pom.xml` changes needed.
+---
 
-#### E2E tests — Cloud Build, post-deploy-to-test
+### E2E tests — Cloud Build, post-deploy-to-test
 
 Playwright runs inside the `mcr.microsoft.com/playwright:v1.50.0-noble` image against the live test Cloud
-Run URL. A fresh JWT is fetched from `/api/test/token` before the suite starts (the test-only endpoint,
-enabled via `APP_E2E_ENABLED=true` on the test Cloud Run service).
+Run URL. A fresh JWT is fetched from `/api/test/token` before the suite starts.
 
-No new infrastructure is needed. New E2E spec files are picked up automatically by Playwright's config.
-The `multiplayer.spec.ts` pattern of using multiple browser contexts is the model for any new multi-user
-tests.
+#### Artifact capture on failure
+
+When Playwright tests fail in Cloud Build, the HTML report and trace files are uploaded to GCS so failures
+are fully debuggable without re-running.
+
+- Playwright is configured with `trace: 'retain-on-failure'` and `screenshot: 'only-on-failure'`.
+  Traces include a full DOM snapshot at every step, all network requests, and the console log.
+- The Cloud Build E2E step uploads `playwright-report/` to
+  `gs://dungeon-mapster-487912_cloudbuild/playwright-traces/$BUILD_ID/` when `$PLAY_EXIT` is non-zero,
+  then echoes the GCS URL to the build log.
+- A GCS Object Lifecycle rule on the `playwright-traces/` prefix deletes objects after 30 days.
+  Storage cost is negligible (a few MB per failed run at $0.02/GB/month).
+
+This is an additive change to the `e2e-tests` step in `cloudbuild.yaml`.
 
 ---
 
 ### Local development workflow
-
-The user's intuition is right: local test execution is largely limited to the fastest tiers. The CI
-pipeline handles everything else with more consistency than a local environment can guarantee.
 
 | What to run locally | When | Command |
 |---------------------|------|---------|
@@ -117,10 +142,6 @@ What is **not** worth running locally:
 - E2E tests (requires the full stack deployed; the test Cloud Run is the right target)
 - Docker build (slow, Cloud Build handles this)
 
-Testcontainers does work locally if Docker Desktop is running, so the single-test case above is genuinely
-useful while writing a new `*IT.java` class. Running `mvn verify` locally before pushing is optional but
-shortens the feedback loop if an integration test is actively being developed.
-
 ---
 
 ### Cost profile
@@ -128,49 +149,127 @@ shortens the feedback loop if an integration test is actively being developed.
 No new infrastructure is required for any test in this spec. All costs are incremental build time on
 existing resources.
 
-| Resource | Current cost driver | Impact of new tests |
-|----------|-------------------|---------------------|
-| GitHub Actions | PR gate ~3–4 min/PR | Unit tests add negligible time; GitHub Actions free tier (2,000 min/month) is sufficient |
-| Cloud Build | Integration tests ~2–3 min, E2E ~4–5 min, total build ~12–15 min | New integration test classes add ~1–2 min. New E2E specs add ~1–2 min. Total build stays under 20 min. |
-| Cloud Build free tier | 120 build-minutes/day free | At ~5 merges/week (~15 min each), weekly usage is ~75 min — under the daily free quota most days |
-| Test Cloud Run (`dungeon-mapster-test`) | Min 1 instance, already running | No change — E2E tests already run against this |
-| GCS test bucket (`dungeon-mapster-test`) | Negligible storage + minimal egress | No change |
-| Testcontainers PostgreSQL | Runs in the Cloud Build VM | Free — no separate Cloud SQL instance |
-
-The one cost to avoid: **do not add a persistent Cloud SQL test instance**. Testcontainers already provides
-an ephemeral database for integration tests, and the existing `dungeonmapster_test` database on the shared
-Cloud SQL instance is used only by the deployed test Cloud Run service (for E2E). This separation is correct
-and should stay as-is.
+| Resource | Impact of new tests |
+|----------|---------------------|
+| GitHub Actions | `action-junit-report` adds ~5s per job. Free tier (2,000 min/month) is unaffected. |
+| Cloud Build | New integration test classes add ~1–2 min. New E2E specs add ~1–2 min. Stays under 20 min total. |
+| GCS (playwright-traces/) | A few MB per failed run. 30-day lifecycle rule caps accumulation. Cost is negligible. |
+| Cloud Run test instance | No change — E2E tests already run against this. |
+| Testcontainers PostgreSQL | Runs in the Cloud Build VM — free. |
 
 ---
 
-### What needs to change vs what's already in place
+## Test Data Factory
 
-| Area | Status | Action needed |
-|------|--------|---------------|
-| Maven Failsafe config (`*IT.java` → integration, `*Test.java` → unit) | Already configured | None |
-| GitHub Actions `ci.yml` (unit tests + lint + build) | Already configured | None |
-| Cloud Build integration test step (docker-in-docker, Testcontainers) | Already configured | None |
-| Cloud Build E2E step (Playwright, test token, test URL) | Already configured | None |
-| `application-test.properties` Spring profile | Already configured | None |
-| GCS test bucket for integration tests | Already provisioned | None |
-| New `*IT.java` integration test classes | Missing | Write during implementation |
-| New `*Test.java` unit test classes (`NoteServiceTest`, `SessionRegistryTest` gaps) | Missing | Write during implementation |
-| New frontend `*.spec.ts` unit tests | Missing | Write during implementation |
-| New Playwright `*.spec.ts` E2E specs | Missing | Write during implementation |
+### Motivation
+
+The current integration tests use `deleteAll()` in `@BeforeEach` to wipe the entire database before every
+test method. This pattern has three problems:
+
+1. Slow — every test method incurs a full-table-delete round trip.
+2. Parallel-unsafe — a second class wiping the DB mid-run corrupts other tests.
+3. Duplicated setup code — each IT class reimplements the same user/map construction inline.
+
+The factory replaces this entirely.
+
+---
+
+### Test isolation contract
+
+These rules apply to all integration test classes, new and existing:
+
+1. **No `deleteAll()` calls anywhere.** The Testcontainers PostgreSQL container is destroyed at the end of
+   the Maven Failsafe run. Its data never persists between runs. Per-method wipes are unnecessary.
+2. **Each test class uses `@BeforeAll` to create its own data via `TestFactory`.** This is the "section"
+   of data for that class. No other class touches it because all entities are identified by UUIDs.
+3. **Destructive tests (delete, remove member, transfer ownership) create their own `TestContext` inline
+   via `TestFactory` rather than operating on the class-level context.** This keeps the shared context
+   intact for other tests in the class and makes each destructive test fully self-contained.
+4. **Tests within a class must not depend on each other's side effects.** Each test either reads from the
+   shared class-level context or creates and destroys its own data.
+5. **Entity names and emails are UUID-based** (generated by the factory) so two classes in the same run
+   never collide.
+
+---
+
+### TestContext
+
+A plain record that holds the entities a test class needs. Fields for roles not present in a given
+scenario are `null`.
+
+```java
+record TestContext(
+    Long ownerId,    String ownerToken,
+    Long dmId,       String dmToken,
+    Long playerId,   String playerToken,
+    Long mapId,      String joinCode
+) {}
+```
+
+---
+
+### TestFactory
+
+A Spring `@Component` in the test source tree, imported via `IntegrationTestBase`. Autowired into IT
+classes the same way `MockMvc` is.
+
+**Scenario methods** (cover the vast majority of tests):
+
+| Method | Creates |
+|--------|---------|
+| `mapWithOwner()` | 1 user (OWNER), 1 map |
+| `mapWithOwnerAndDm()` | 2 users (OWNER + DM), 1 map |
+| `mapWithAllRoles()` | 3 users (OWNER + DM + PLAYER), 1 map |
+
+**Primitive methods** (for tests that need custom composition):
+
+| Method | Returns |
+|--------|---------|
+| `createUser()` | `UserContext(id, token)` — unique UUID email, auto-generated name |
+| `createMap(ownerId)` | `MapContext(id, joinCode)` — square grid, size 40 |
+| `joinMap(mapId, joinCode, userId)` | Calls `POST /api/maps/join` and returns |
+
+All scenario methods call the API (not repositories directly) so membership data is fully realistic.
+
+**Usage in a class with shared context:**
+
+```java
+@Autowired TestFactory factory;
+
+static TestContext ctx;
+
+@BeforeAll
+void setUp() {
+    ctx = factory.mapWithOwnerAndDm();
+}
+
+@Test
+void someReadTest() {
+    // use ctx.mapId, ctx.ownerToken, etc.
+}
+
+@Test
+void deleteMap_asOwner_removesMapAndMemberships() {
+    TestContext isolated = factory.mapWithOwner();
+    // delete isolated.mapId — ctx is untouched
+}
+```
+
+**What to migrate:** `DungeonMapControllerIT` and `MapMembershipIT` currently use `deleteAll()` in
+`@BeforeEach`. These are refactored as part of this feature to use `@BeforeAll` + `TestFactory`.
 
 ---
 
 ## Concrete Test List
 
-Tests are listed by the file they live in. Existing tests are marked `[existing]`. All others are new.
+Tests are listed by the file they live in. Existing tests marked `[existing]`. All others are new.
 
 ---
 
 ### Unit Tests
 
 #### `DungeonMapServiceTest` (existing — no changes required)
-All 45 existing tests cover role checks, map creation, join, promote/demote, and patch. Sufficient as-is.
+All 45 existing tests cover role checks, map creation, join, promote/demote, and patch.
 
 #### `JwtTokenProviderTest` (existing — no changes required)
 Token generation, validation, expiration, and userId round-trip are covered.
@@ -204,35 +303,39 @@ All handshake rejection and acceptance scenarios are covered.
 
 ### API Integration Tests
 
-All integration tests use `@SpringBootTest` + Testcontainers PostgreSQL and the existing
-`application-test.properties` profile from #37.
+All integration tests extend `IntegrationTestBase`, use `@BeforeAll` + `TestFactory`, and follow the
+test isolation contract above.
 
 #### `AuthControllerIT` (existing — complete)
 - `[existing]` `getMe_withValidToken_returnsCurrentUser`
 - `[existing]` `getMe_withNoToken_returns401`
 - `[existing]` `getMe_withInvalidToken_returns401`
 
-#### `DungeonMapControllerIT` (existing — expand)
-- `[existing]` `createMap_returnsMapWithJoinCode`
-- `[existing]` `listMaps_returnsOnlyUserOwnedMaps`
-- `[existing]` `patchMap_updatesSpecifiedField`
-- `getMapById_returnsCorrectMap`
-- `getMapById_notFound_returns404`
-- `updateMap_asOwner_persistsName`
-- `deleteMap_asOwner_removesMapAndMemberships`
-- `deleteMap_asNonOwner_returns403`
+#### `DungeonMapControllerIT` (existing — refactor + expand)
+Refactor: replace `@BeforeEach deleteAll` with `@BeforeAll factory.mapWithOwner()`.
+- `[existing]` `createMap_returnsCreatedMap`
+- `[existing]` `getMaps_returnsUserMaps`
+- `[existing]` `patchMap_updatesField`
+- `[existing]` `getMapById_returnsCorrectMap`
+- `[existing]` `getMapById_notFound_returns404`
+- `[existing]` `updateMap_asOwner_persistsName`
+- `[existing]` `deleteMap_removesMap` — uses inline `factory.mapWithOwner()`
+- `[existing]` `deleteMap_asOwner_removesMapAndMemberships` — uses inline `factory.mapWithOwner()`
+- `[existing]` `deleteMap_asNonOwner_returns403`
+- `[existing]` `getMap_withoutAuth_returns401`
 
-#### `MapMembershipIT` (new)
-- `joinMap_withValidCode_addsMemberWithPlayerRole`
-- `joinMap_withInvalidCode_returns404`
-- `joinMap_alreadyMember_returns409`
-- `promoteToD m_asOwner_updatesMemberRole`
-- `demoteToPlayer_asOwner_updatesMemberRole`
-- `promoteOrDemote_asNonOwner_returns403`
-- `transferOwnership_asOwner_previousOwnerBecomesDm`
-- `removeMember_asOwner_removesMembership`
-- `removedMember_getMap_returns403`
-- `getMembers_returnsAllMembersWithCorrectRoles`
+#### `MapMembershipIT` (existing — refactor + expand)
+Refactor: replace `@BeforeEach deleteAll` with `@BeforeAll factory.mapWithOwner()`.
+- `[existing]` `joinMap_withValidCode_addsMemberWithPlayerRole`
+- `[existing]` `joinMap_withInvalidCode_returns404`
+- `[existing]` `joinMap_alreadyMember_returns409`
+- `[existing]` `promoteToDm_asOwner_updatesMemberRole`
+- `[existing]` `demoteToPlayer_asOwner_updatesMemberRole`
+- `[existing]` `promoteOrDemote_asNonOwner_returns403`
+- `[existing]` `transferOwnership_asOwner_previousOwnerBecomesDm` — uses inline `factory.mapWithOwnerAndDm()`
+- `[existing]` `removeMember_asOwner_removesMembership` — uses inline `factory.mapWithAllRoles()`
+- `[existing]` `removedMember_getMap_returns404` — uses inline `factory.mapWithAllRoles()`
+- `[existing]` `getMembers_returnsAllMembersWithCorrectRoles`
 
 #### `GridCellDataControllerIT` (new)
 - `saveCell_andRetrieve_returnsCorrectData`
@@ -254,7 +357,7 @@ All integration tests use `@SpringBootTest` + Testcontainers PostgreSQL and the 
 - `addPicklistValue_asDm_appearsInPicklistValues`
 - `updatePicklistValue_asDm_persistsLabel`
 - `deletePicklistValue_asDm_removesOption`
-- `getVariables_asDmOnly_notVisibleToPlayers` *(checks response payload visibility field)*
+- `getVariables_asDmOnly_notVisibleToPlayers`
 
 #### `CellVariableValueControllerIT` (new)
 - `upsertValue_newValue_createsRecord`
@@ -263,7 +366,7 @@ All integration tests use `@SpringBootTest` + Testcontainers PostgreSQL and the 
 - `getValuesForCell_returnsAllValuesForCell`
 - `upsertDmOnlyVariable_asPlayer_returns403`
 
-#### `FileUploadControllerIT` (existing — expand)
+#### `GcsUploadIT` (existing — expand)
 - `[existing]` `uploadImage_returnsFilenameInResponse`
 - `downloadImage_byFilename_returnsFile`
 
@@ -272,7 +375,8 @@ All integration tests use `@SpringBootTest` + Testcontainers PostgreSQL and the 
 ### E2E Tests (Playwright)
 
 E2E tests cover only what cannot be verified without a real browser. All tests run against the live test
-Cloud Run environment after deploy.
+Cloud Run environment after deploy. Playwright is configured with `trace: 'retain-on-failure'` and
+`screenshot: 'only-on-failure'` — traces are uploaded to GCS on build failure.
 
 #### `auth.spec.ts` (new)
 - `homePage_loadsForUnauthenticatedUser`
@@ -303,10 +407,7 @@ Cloud Run environment after deploy.
 
 ---
 
-### Manual Checklist
-
-The following scenarios are documented for manual verification. Each has a number for easy reference when
-reporting issues.
+## Manual Checklist
 
 | # | Area | Scenario | Trigger |
 |---|------|----------|---------|
@@ -322,31 +423,29 @@ reporting issues.
 | M-10 | File size | Attempt to upload a file larger than 30 MB — verify a clear error message is shown | Upload / file handling changes |
 | M-11 | Grid types | Create a map with a hex grid and a map with a square grid — verify each renders the correct cell shape | Grid rendering changes |
 
-The "Trigger" column indicates which types of code changes should prompt re-running that item before merging.
-
 ---
 
 ## Tests Intentionally Excluded from Automation
 
-The following were considered and deliberately left out:
-
 | Scenario | Reason |
 |----------|--------|
 | Last-write-wins simultaneous cell edit | Requires precise timing coordination between two async browser contexts; more likely to produce false failures than catch real bugs. Covered by M-2. |
-| "Persists after page reload" in E2E | Page reload timing adds significant latency and flake to the test run. Persistence is already verified at the API integration layer; E2E just confirms the UI round-trip. |
-| Variable visibility enforcement in the UI | Whether the *correct fields are hidden* in the browser is visual and selector-fragile. The API already enforces the 403; M-4 and M-5 cover the UI layer manually. |
-| User reconnect state resync (precise assertion) | Full state verification after reconnect requires stable timing. M-3 covers the user-visible behavior manually. |
-| Demo editor read-only enforcement | The demo editor requires checking that no network write calls are made during interaction, which is fragile to implement in Playwright. Covered by M-8. |
+| "Persists after page reload" in E2E | Page reload timing adds flake. Persistence is verified at the API integration layer; E2E just confirms the UI round-trip. |
+| Variable visibility enforcement in the UI | Whether the correct fields are hidden in the browser is selector-fragile. The API already enforces the 403; M-4 and M-5 cover the UI layer manually. |
+| User reconnect state resync | Full state verification after reconnect requires stable timing. M-3 covers the user-visible behavior manually. |
+| Demo editor read-only enforcement | Checking that no network write calls are made during interaction is fragile to implement in Playwright. Covered by M-8. |
 | Grid rendering cell count | Tests the rendering implementation rather than user-visible behavior. Caught by visual inspection (M-11) if the grid is wrong. |
 
 ---
 
 ## Implementation Order
 
-1. Backend unit tests: `SessionRegistryTest` gaps, `NoteServiceTest`
-2. Backend API integration: `MapMembershipIT`, `NoteControllerIT`, `MapVariableControllerIT`,
-   `CellVariableValueControllerIT`, `GridCellDataControllerIT`, expand `DungeonMapControllerIT`,
-   expand `FileUploadControllerIT`
-3. Frontend unit tests: `AuthInterceptorSpec`, `AuthGuardSpec`
-4. E2E: `auth.spec.ts`, expand `maps.spec.ts`, expand `map-editor.spec.ts`, expand `multiplayer.spec.ts`
-5. CLAUDE.md update
+1. `TestFactory` and `TestContext` — implement first; all subsequent tests depend on it
+2. Refactor `DungeonMapControllerIT` and `MapMembershipIT` to use `@BeforeAll` + `TestFactory`
+3. Backend unit tests: `SessionRegistryTest` gaps, `NoteServiceTest`
+4. Backend API integration: `GridCellDataControllerIT`, `NoteControllerIT`, `MapVariableControllerIT`,
+   `CellVariableValueControllerIT`, expand `GcsUploadIT`
+5. Frontend unit tests: `AuthInterceptorSpec`, `AuthGuardSpec`
+6. E2E: `auth.spec.ts`, expand `maps.spec.ts`, expand `map-editor.spec.ts`, expand `multiplayer.spec.ts`
+7. CI additions: JUnit XML reporters in `ci.yml`, Playwright artifact upload in `cloudbuild.yaml`
+8. CLAUDE.md update
