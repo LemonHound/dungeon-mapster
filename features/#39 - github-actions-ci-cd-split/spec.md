@@ -64,7 +64,7 @@ Push to main (after PR merge)
 
 **Testcontainers on GitHub Actions**: `ubuntu-latest` runners include Docker, so Testcontainers works without modification. The `TESTCONTAINERS_RYUK_DISABLED=true` env var is no longer needed (Ryuk works fine on Actions).
 
-**GCS in integration tests**: `GcsUploadIT` uses the real `dungeon-mapster-test` bucket. This requires a GCP service account key available as a GitHub Actions secret. The test can alternatively be skipped in CI via a Maven profile and retained in Cloud Build only — decision deferred to implementation.
+**GCS in integration tests**: `GcsUploadIT` uses the real `dungeon-mapster-test` bucket. Running it on GitHub Actions requires a GCP service account key stored as a GitHub Actions secret. Options: (a) add the key as a secret and run the test as-is, (b) skip it in Actions via a Maven profile and keep it in Cloud Build only, (c) mock GCS in the test profile. **Open question — decide at implementation time.**
 
 **E2E during Phase 1**: With no per-PR E2E, the Cloud Build smoke test provides minimal confidence that the deployed service starts. Full E2E remains on the post-merge Cloud Build run until Phase 2.
 
