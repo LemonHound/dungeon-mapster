@@ -1,6 +1,6 @@
 # #39 — GitHub Actions CI / Cloud Build CD Split
 
-**Status:** Draft
+**Status:** Implementation
 
 ## Problem
 
@@ -64,7 +64,7 @@ Push to main (after PR merge)
 
 **Testcontainers on GitHub Actions**: `ubuntu-latest` runners include Docker, so Testcontainers works without modification. The `TESTCONTAINERS_RYUK_DISABLED=true` env var is no longer needed (Ryuk works fine on Actions).
 
-**GCS in integration tests**: `GcsUploadIT` uses the real `dungeon-mapster-test` bucket. Running it on GitHub Actions requires a GCP service account key stored as a GitHub Actions secret. Options: (a) add the key as a secret and run the test as-is, (b) skip it in Actions via a Maven profile and keep it in Cloud Build only, (c) mock GCS in the test profile. **Open question — decide at implementation time.**
+**GCS in integration tests**: `GcsUploadIT` uses the real `dungeon-mapster-test` bucket and is excluded from the GitHub Actions run. A containerized or local run cannot emulate the IAM permissions that the deployed Cloud Run service has — so a passing test would not confirm the API works in production, and a failing one would not indicate a real problem. The test Cloud Run service has identical permissions and config to production (differing only in data), making it the correct and only meaningful environment for this test. `GcsUploadIT` remains in Cloud Build only, run against the deployed test environment post-merge.
 
 **E2E during Phase 1**: With no per-PR E2E, the Cloud Build smoke test provides minimal confidence that the deployed service starts. Full E2E remains on the post-merge Cloud Build run until Phase 2.
 
