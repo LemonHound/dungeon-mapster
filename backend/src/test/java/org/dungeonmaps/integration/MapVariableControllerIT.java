@@ -220,7 +220,7 @@ class MapVariableControllerIT extends IntegrationTestBase {
     }
 
     @Test
-    void getVariables_returnsVariablesWithVisibilityField() throws Exception {
+    void getVariables_asDm_returnsDmOnlyVariables() throws Exception {
         mockMvc.perform(post("/api/maps/" + mapId + "/variables")
                         .header("Authorization", "Bearer " + dmToken)
                         .contentType(MediaType.APPLICATION_JSON)

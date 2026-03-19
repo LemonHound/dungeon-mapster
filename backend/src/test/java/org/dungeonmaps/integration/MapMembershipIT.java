@@ -244,7 +244,7 @@ class MapMembershipIT extends IntegrationTestBase {
     }
 
     @Test
-    void removedMember_getMap_returns404() throws Exception {
+    void removedMember_getMap_returns403() throws Exception {
         String playerToken = createUserToken("removed2@example.com", "google-removed2");
         Long playerId = userRepository.findByEmail("removed2@example.com").get().getId();
 
@@ -260,7 +260,7 @@ class MapMembershipIT extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/maps/" + mapId)
                         .header("Authorization", "Bearer " + playerToken))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
     }
 
     @Test
