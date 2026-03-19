@@ -23,6 +23,15 @@ jobs:
           GOOGLE_CLIENT_SECRET: ci-placeholder
           GCS_BUCKET_NAME: ci-placeholder
         run: mvn test -q
+      - name: Run integration tests
+        working-directory: ./backend
+        env:
+          JWT_SECRET: ci-test-secret-at-least-32-bytes-long-for-hmac256
+          GOOGLE_CLIENT_ID: ci-placeholder
+          GOOGLE_CLIENT_SECRET: ci-placeholder
+          GCS_BUCKET_NAME: ci-placeholder
+          SPRING_PROFILES_ACTIVE: test
+        run: mvn failsafe:integration-test failsafe:verify -P ci -q
 
   frontend:
     runs-on: ubuntu-latest
