@@ -33,11 +33,10 @@ public class DungeonMapController {
     @GetMapping("/{id}")
     public ResponseEntity<DungeonMap> getMapById(@PathVariable Long id, Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
-        if (!service.hasRole(id, userId, MapRole.OWNER, MapRole.DM, MapRole.PLAYER)) {
-            return ResponseEntity.status(403).build();
-        }
         return service.getMapById(id)
-                .map(ResponseEntity::ok)
+                .map(map -> service.hasRole(id, userId, MapRole.OWNER, MapRole.DM, MapRole.PLAYER)
+                        ? ResponseEntity.ok(map)
+                        : ResponseEntity.status(403).<DungeonMap>build())
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -66,6 +65,7 @@ public class DungeonMapController {
                     map.setId(id);
                     map.setUserId(existing.getUserId());
                     map.setJoinCode(existing.getJoinCode());
+                    map.setCreatedAt(existing.getCreatedAt());
                     return ResponseEntity.ok(service.saveMap(map));
                 })
                 .orElse(ResponseEntity.notFound().build());
